@@ -1,3 +1,5 @@
+ui_main.py  
+
 import sys
 import json
 from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QTableWidget, QTableWidgetItem,
@@ -10,7 +12,7 @@ from PyQt5.QtWidgets import QComboBox
 from Backend.img_to_json import process_image_to_json
 
 # DB
-from DataBase.database import get_senders_and_id, insert_client, insert_product, insert_invoice, get_next_invoice_number
+from DataBase.database import get_senders_and_id, insert_client, insert_product, insert_invoice, get_next_invoice_number, get_products
 from DataBase.database import match_client_fuzzy,match_product_fuzzy
 #scrapping
 from Scraping.scraper_sunat import send_billing_sunat
@@ -19,44 +21,37 @@ from Scraping.scraper_sunat import send_billing_sunat
 from PyQt5.QtWidgets import QComboBox, QTableWidgetItem, QCompleter
 from PyQt5.QtCore import Qt
 
+#log
+import logging
 
-class CustomComboBox(QComboBox):
-    """QComboBox personalizado que se cierra automáticamente cuando pierde el foco o se selecciona una opción."""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setEditable(True)  # Permitir escritura
-        self.setMinimumWidth(250)  # Ajustar tamaño mínimo
-        self.completer().setCaseSensitivity(Qt.CaseInsensitive)  # Ignorar mayúsculas/minúsculas
-        self.completer().setFilterMode(Qt.MatchContains)  # Mostrar coincidencias parciales
-        self.activated.connect(self.force_close)  # Cierra el desplegable al seleccionar
+logging.basicConfig(
+    level=logging.DEBUG,  # Muestra mensajes desde DEBUG hacia arriba
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Formato de log
+    datefmt="%Y-%m-%d %H:%M:%S",  # Formato de fecha
+    handlers=[
+        logging.FileHandler("app.log"),  # Guarda logs en un archivo
+        logging.StreamHandler()  # Muestra logs en consola
+    ]
+)
 
-    def focusOutEvent(self, event):
-        """Cerrar el ComboBox al perder el foco."""
-        super().focusOutEvent(event)
-        self.hidePopup()  # Cierra el desplegable
-        self.clearFocus()  # Asegura que pierde el foco
 
-    def force_close(self):
-        """Cierra el ComboBox manualmente al seleccionar cualquier opción."""
-        self.hidePopup()  # Cierra el desplegable inmediatamente
-        self.clearFocus()  # Asegura que no quede seleccionado
 
 
 def enviar_boleta(data, sender_id, id_client=None):
     """Guarda los datos de la boleta en la base de datos y la envía a SUNAT."""
 
-    print("\n🔹 [DEBUG] Iniciando proceso de emisión de boleta...")
+    logging.info("Iniciando proceso de emisión de boleta...")
 
     if not data:
-        print("[❌ ERROR] No hay datos cargados en `data`. ¿Cargaste un JSON correctamente?")
+        logging.error(" No hay datos cargados en data. ¿Cargaste un JSON correctamente?")
         return
 
     if 'cliente' not in data or 'dni' not in data or 'ruc' not in data:
-        print("[❌ ERROR] JSON no contiene los datos esperados: `cliente`, `dni`, `ruc`.")
+        logging.error("JSON no contiene los datos esperados: cliente, dni, ruc.")
         return
 
     id_sender = sender_id
-    print(f"[INFO] ID del remitente seleccionado: {id_sender}")
+    logging.info(f"ID del remitente seleccionado: {id_sender}")
 
     if id_client is None:
 
@@ -67,16 +62,16 @@ def enviar_boleta(data, sender_id, id_client=None):
         )
 
 
-        print(f"[INFO] Cliente registrado con ID: {id_client}")
+        logging.info(f" Cliente registrado con ID: {id_client}")
 
     if id_client is None or id_sender is None:
-        print("[ERROR] No se pudo continuar. ID Cliente o ID Sender es `None`.")
+        logging.error("No se pudo continuar. ID Cliente o ID Sender es None.")
         return
 
     # 🔹 Cálculo del total de la boleta
     total_pagado = data.get("total", 0)
     igv_total = sum(p.get('Igv', 0) * p.get('precio_base', 0) * 0.18 for p in data.get('productos', []))  # IGV = 18%
-    print(f"[INFO] Total Boleta: S/ {total_pagado:.2f}, Total IGV: S/ {igv_total:.2f}")
+    logging.info(f"Total Boleta: S/ {total_pagado:.2f}, Total IGV: S/ {igv_total:.2f}")
 
     # 🔹 Insertar productos en la BD
     try:
@@ -88,22 +83,22 @@ def enviar_boleta(data, sender_id, id_client=None):
                 producto.get('precio_base', 0),
                 producto.get('Igv', 0)
             )
-        print(f"[INFO] Se insertaron {len(data.get('productos', []))} productos en la BD.")
+        logging.info(f"Se insertaron {len(data.get('productos', []))} productos en la BD.")
 
         # 🔹 Insertar la boleta en la BD
         insert_invoice(id_client, id_sender, total_pagado, igv_total)
-        print(f"✅ [SUCCESS] Boleta registrada correctamente en BD. (Cliente ID: {id_client}, Remitente ID: {id_sender})")
+        logging.info(f"✅ Boleta registrada correctamente en BD. (Cliente ID: {id_client}, Remitente ID: {id_sender})")
 
     except Exception as e:
-        print(f"[❌ ERROR] No se pudo completar la inserción de productos o la boleta. Detalle: {e}")
+        logging.error(f"❌ No se pudo completar la inserción de productos o la boleta. Detalle: {e}")
         return
 
     # 🔹 Enviar a SUNAT (Simulación)
     try:
         send_billing_sunat(data, sender_id)
-        print("✅ [SUCCESS] Boleta enviada a SUNAT correctamente.")
+        logging.info("✅Boleta enviada a SUNAT correctamente.")
     except Exception as e:
-        print(f"[❌ ERROR] Fallo en la emisión ante SUNAT. Detalle: {e}")
+        logging.error(f"❌ Fallo en la emisión ante SUNAT. Detalle: {e}")
 
 
 
@@ -121,21 +116,22 @@ class RemitenteDialog(QDialog):
         layout = QVBoxLayout()
         self.list_widget = QListWidget()
 
-        # Depuración: Ver si `get_senders_and_id()` funciona
+        # Depuración: Ver si get_senders_and_id() funciona
         try:
-            print("[DEBUG] Intentando obtener remitentes...")
+            logging.info(" Intentando obtener remitentes...")
             remitentes = get_senders_and_id()  # Lista de (id, nombre)
 
             if not remitentes:  # Si la lista está vacía
                 raise ValueError("No se encontraron remitentes en la base de datos.")
 
-            print(f"[DEBUG] Remitentes obtenidos: {remitentes}")
+            logging.info(f" Remitentes obtenidos: {remitentes}")
 
             # Diccionario {nombre: id} para fácil acceso
             self.remitentes = {r[1]: r[0] for r in remitentes}
         except Exception as e:
+
             error_msg = f"Error al obtener remitentes: {e}"
-            print(f"[ERROR] {error_msg}")
+            logging.error(" {error_msg}")
             QMessageBox.critical(self, "Error", error_msg)
             self.remitentes = {}
 
@@ -163,7 +159,7 @@ class RemitenteDialog(QDialog):
             remitente_id = self.remitentes.get(nombre_seleccionado)
 
             # Depuración: Verificar si encontramos el ID
-            print(f"[DEBUG] Remitente seleccionado: {nombre_seleccionado}, ID: {remitente_id}")
+            logging.info(f" Remitente seleccionado: {nombre_seleccionado}, ID: {remitente_id}")
 
             if remitente_id is None:
                 raise ValueError(f"No se encontró un ID para el remitente '{nombre_seleccionado}'.")
@@ -173,7 +169,7 @@ class RemitenteDialog(QDialog):
             self.accept()
         except Exception as e:
             error_msg = f"Error al seleccionar remitente: {e}"
-            print(f"[ERROR] {error_msg}")
+            logging.error(f" {error_msg}")
             QMessageBox.critical(self, "Error", error_msg)
 
 class BoletaApp(QWidget):
@@ -183,6 +179,7 @@ class BoletaApp(QWidget):
         self.data = []
         self.productos_originales = {}
         self.initUI()
+        self.cargar_productos= self.cargar_productos()
 
 
     def subir_imagen(self):
@@ -190,9 +187,8 @@ class BoletaApp(QWidget):
         if file_path:
             self.data=process_image_to_json(file_path)
             self.display_image(file_path)
-            print("test1")
             self.fill_form_fields(self.data)
-            print("test2")
+
     def initUI(self):
         main_layout = QHBoxLayout()
 
@@ -201,7 +197,7 @@ class BoletaApp(QWidget):
 
         # Sección de Imagen
         self.img_label = QLabel(self)
-        self.img_label.setPixmap(QPixmap("camera_icon.png").scaled(400, 400, Qt.KeepAspectRatio))
+        self.img_label.setPixmap(QPixmap("../resources/camera_icon.png").scaled(400, 400, Qt.KeepAspectRatio))
         self.img_label.setAlignment(Qt.AlignCenter)
         self.img_button = QPushButton("Subir Imagen", self)
         self.img_button.clicked.connect(self.subir_imagen)  # Ahora se asocia correctamente a la instancia
@@ -233,7 +229,6 @@ class BoletaApp(QWidget):
         # 🔹 Agregar elementos al layout en filas separadas
         remitente_layout.addWidget(tipo_label)
         remitente_layout.addWidget(self.tipo_documento_combo)
-        remitente_layout.addWidget(self.remitente_label)
         remitente_layout.addWidget(self.remitente_label)
         remitente_layout.addWidget(remitente_button)
 
@@ -306,10 +301,25 @@ class BoletaApp(QWidget):
         productos_layout = QVBoxLayout()
         ver_sugerencias = QCheckBox("Ver Todas las sugerencias")
 
-        self.productos_table = QTableWidget(2, 8)
+        self.productos_table = QTableWidget(1, 7)  # Cambiar de 8 a 7 columnas
         self.productos_table.setHorizontalHeaderLabels(
-            ["Sugerencia", "Cantidad", "Unidad", "Descripción", "Precio Base", "IGV","Total IGV","Precio total"])
-        self.productos_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            ["Cantidad", "Unidad", "Descripción", "Precio Base", "IGV", "Total IGV", "Precio total"]
+        )
+        self.productos_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        # Fijar las columnas específicas
+        self.productos_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)  # Cantidad
+        self.productos_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)  # IGV
+
+        # Ajustar el ancho de las columnas necesarias
+        self.productos_table.setColumnWidth(0, 80)  # Cantidad (más estrecha)
+        self.productos_table.setColumnWidth(4, 80)  # IGV (más estrecha)
+        self.productos_table.setColumnWidth(2, 200)  #descipcion
+
+
+        # Las demás columnas se ajustan automáticamente
+        self.productos_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+
+
         self.productos_table.setFont(QFont("Arial", 10))
         productos_layout.addWidget(ver_sugerencias)
         productos_layout.addWidget(self.productos_table)
@@ -350,77 +360,97 @@ class BoletaApp(QWidget):
         self.setWindowTitle("Resumen de Boleta")
         self.resize(1200, 600)
 
+    def cargar_productos(self):
+        """Carga todos los productos desde la base de datos al iniciar la app."""
+        try:
+            self.productos_disponibles = get_products()  # Lista de tuplas (id, nombre, unidad, precio)
+            logging.info(f"Se cargaron {len(self.productos_disponibles)} productos en memoria.")
+        except Exception as e:
+            logging.error(f"[ERROR] No se pudieron cargar los productos: {e}")
+            self.productos_disponibles = []
+
     def activar_autocompletado(self, row, col):
         """Si el usuario hace clic en la celda de descripción, activa el autocompletado."""
-        if col == 3:  # Columna de Descripción
+        if col == 2:  # Columna de Descripción
             self.configurar_autocompletado(row)
 
     def configurar_autocompletado(self, row):
-        """Activa un QComboBox editable con autocompletado dinámico basado en la BD."""
+        """Activa un QComboBox editable con autocompletado dinámico basado en los productos precargados."""
+        try:
+            logging.info(f"[INFO] Configurando autocompletado en fila {row}...")
 
-        descripcion_actual = self.productos_table.item(row, 3).text() if self.productos_table.item(row, 3) else ""
+            # 🔹 Obtener la descripción actual
+            descripcion_actual = self.productos_table.item(row, 2).text() if self.productos_table.item(row, 2) else ""
 
-        # 🔹 Obtener productos similares desde la BD
-        productos_similares = match_product_fuzzy(descripcion_actual)
-        if not productos_similares:
-            return  # No hacer nada si no hay sugerencias
+            if not descripcion_actual.strip():
+                logging.warning(f"[WARNING] Descripción vacía en fila {row}. No se puede autocompletar.")
+                return
 
-        # 🔹 Crear el QComboBox editable
-        combo_box = QComboBox()
-        combo_box.setEditable(True)  # Permitir escritura
+            # 🔹 Filtrar productos precargados según lo que escribe el usuario
+            productos_similares = [p for p in self.productos_disponibles if descripcion_actual.lower() in p[1].lower()]
 
-        # 🔹 Ajustar tamaño mínimo
-        combo_box.setMinimumWidth(250)
+            if not productos_similares:
+                logging.info(f"[INFO] No se encontraron coincidencias para '{descripcion_actual}'.")
+                return
 
-        # 🔹 Agregar producto original como primera opción
-        combo_box.addItem(descripcion_actual, (descripcion_actual, None, None, None))
+            # 🔹 Crear un QComboBox editable con autocompletado
+            combo_box = QComboBox()
+            combo_box.setEditable(True)
+            combo_box.setMinimumWidth(300)  # Asegurar visibilidad
+            combo_box.addItem(descripcion_actual, (descripcion_actual, None, None, None))  # Producto original
 
-        # 🔹 Agregar productos sugeridos con su información
-        sugerencias = []
-        for producto in productos_similares:
-            id_producto, nombre, unidad, precio, confianza = producto
-            texto_opcion = f"{nombre} | S/ {precio} | {unidad} ({confianza}%)"
-            combo_box.addItem(texto_opcion, (nombre, precio, unidad, id_producto))
-            sugerencias.append(nombre)  # Guardamos solo los nombres para el autocompletado
+            sugerencias = []
+            for producto in productos_similares:
+                id_producto, nombre, unidad, precio = producto  # Asegúrate de que get_products() retorna estos valores
+                texto_opcion = f"{nombre} | S/ {precio:.2f} | {unidad}"
+                combo_box.addItem(texto_opcion, (nombre, precio, unidad, id_producto))
+                sugerencias.append(texto_opcion)
 
-        # 🔹 Configurar autocompletado
-        completer = QCompleter(sugerencias)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)  # Ignorar mayúsculas/minúsculas
-        completer.setFilterMode(Qt.MatchContains)  # Mostrar coincidencias parciales
-        combo_box.setCompleter(completer)
+            # 🔹 Configurar autocompletado inteligente
+            completer = QCompleter(sugerencias)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)  # Ignorar mayúsculas/minúsculas
+            completer.setFilterMode(Qt.MatchContains)  # Mostrar coincidencias parciales
+            combo_box.setCompleter(completer)
 
-        # ✅ Cerrar automáticamente al seleccionar una opción
-        combo_box.activated.connect(lambda: combo_box.hidePopup())
+            # ✅ Capturar Enter para seleccionar el producto resaltado
+            def on_enter_pressed():
+                logging.info("[INFO] Enter presionado en autocompletado.")
+                index = combo_box.currentIndex()
+                if index >= 0:
+                    logging.info(f"[INFO] Producto seleccionado: {combo_box.currentText()}")
+                    combo_box.setCurrentIndex(index)
+                    self.actualizar_producto_seleccionado(row, combo_box)
 
-        # 🔹 Actualizar la celda cuando se seleccione un producto
-        combo_box.currentIndexChanged.connect(
-            lambda index, row=row: self.actualizar_producto_seleccionado(row, combo_box))
+            # 🔹 Conectar eventos para la selección
+            combo_box.activated.connect(lambda: combo_box.hidePopup())  # Cierra automáticamente el popup
+            combo_box.currentIndexChanged.connect(lambda index: self.actualizar_producto_seleccionado(row, combo_box))
+            combo_box.lineEdit().returnPressed.connect(on_enter_pressed)
 
-        # 🔹 Insertar el QComboBox en la celda de la tabla
-        self.productos_table.setCellWidget(row, 3, combo_box)
+            # 🔹 Insertar el QComboBox en la celda
+            self.productos_table.setCellWidget(row, 2, combo_box)
+
+        except Exception as e:
+            logging.error(f"[ERROR] Ocurrió un problema en configurar_autocompletado: {e}")
 
     def actualizar_producto_seleccionado(self, row, combo_box):
-        """Cuando el usuario elige un producto del QComboBox, actualiza la fila con sus datos y lo cierra."""
+        """Cuando el usuario elige un producto del QComboBox, actualiza la fila con sus datos."""
 
-        datos_producto = combo_box.currentData()  # Obtener datos del producto
+        datos_producto = combo_box.currentData()
         if not datos_producto:
             return
 
         nombre, precio, unidad, id_producto = datos_producto
 
+        # 🔹 Asegurar que no haya un QComboBox previo en la celda
+        self.productos_table.removeCellWidget(row, 2)
+
         # 🔹 Actualizar valores en la tabla
-        self.productos_table.setItem(row, 3, QTableWidgetItem(nombre))  # Descripción
-        self.productos_table.setItem(row, 2, QTableWidgetItem(unidad))  # Unidad de medida
-        self.productos_table.setItem(row, 4, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio Base
-        self.productos_table.setItem(row, 7, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio Total
+        self.productos_table.setItem(row, 2, QTableWidgetItem(nombre))  # Descripción
+        self.productos_table.setItem(row, 1, QTableWidgetItem(unidad))  # Unidad de medida
+        self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio Base
+        self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio Total
 
-        print(f"[INFO] Producto seleccionado: {nombre}, ID: {id_producto}, Precio: {precio}, Unidad: {unidad}")
-
-        # 🔹 Cerrar automáticamente el QComboBox al seleccionar
-        self.productos_table.removeCellWidget(row, 3)  # Remueve el combobox y deja el texto final en la celda
-
-        # 🔹 Asegurar que el nuevo valor se refleja en la tabla
-        self.productos_table.setItem(row, 3, QTableWidgetItem(nombre))  # Reemplazar QComboBox por el texto
+        logging.info(f" Producto seleccionado: {nombre}, ID: {id_producto}, Precio: {precio}, Unidad: {unidad}")
 
     def actualizar_tipo_documento(self):
         """Cambia automáticamente el tipo de documento a 'Factura' si se ingresa un RUC, o a 'Boleta' si se borra."""
@@ -439,7 +469,7 @@ class BoletaApp(QWidget):
 
         num_documento = get_next_invoice_number(id_sender)
         if num_documento is None:
-            num_documento = 1  # 🔹 Evitar errores si la BD devuelve `None`
+            num_documento = 1  # 🔹 Evitar errores si la BD devuelve None
 
         # 🔹 Determinar el prefijo según el tipo de documento
         tipo_documento = self.tipo_documento_combo.currentText()
@@ -451,39 +481,40 @@ class BoletaApp(QWidget):
         self.serie_label.setText(f"Serie: {serie}")
         self.numero_label.setText(f"Número: {numero}")
 
-        print(f"[INFO] Serie y Número actualizados: {serie} - {numero}")
+        logging.info(f" Serie y Número actualizados: {serie} - {numero}")
 
     def actualizar_resumen(self):
         """Calcula y actualiza el Total IGV y el Total Importe usando la columna 'precio_total'."""
         print("entrando a actualizar_resumen")
 
+        # 🔹 Desconectar señales temporalmente para evitar loops infinitos
+        self.productos_table.blockSignals(True)
+
         total_importe = 0
         total_igv = 0
 
         for row in range(self.productos_table.rowCount()):
-            total_producto_item = self.productos_table.item(row, 7)  # Total Producto
-            igv_item = self.productos_table.item(row, 6)  # Total IGV
+            total_producto_item = self.productos_table.item(row, 6)  # Total Producto
+            igv_item = self.productos_table.item(row, 5)  # Total IGV
 
             try:
-                total_producto = float(total_producto_item.text().replace("S/ ", "").replace(",",
-                                                                                             ".")) if total_producto_item.text() else 0.0
-                igv_producto = float(igv_item.text().replace("S/ ", "").replace(",", ".")) if igv_item.text() else 0.0
+                total_producto = float(
+                    total_producto_item.text().replace("S/ ", "").replace(",", ".")) if total_producto_item else 0.0
+                igv_producto = float(igv_item.text().replace("S/ ", "").replace(",", ".")) if igv_item else 0.0
 
                 total_importe += total_producto
                 total_igv += igv_producto
 
             except ValueError as e:
-                print(f"[⚠️ WARNING] No se pudo calcular el total en fila {row}: {e}")
+                logging.warning(f"No se pudo calcular el total en fila {row}: {e}")
 
-        # 🔹 Si los valores no cambian, no actualizar (evita llamadas innecesarias)
-        if self.igv_label.text() == f"Total IGV: S/ {total_igv:.2f}" and self.total_label.text() == f"Total importe: S/ {total_importe:.2f}":
-            return  # No actualizar si ya es el mismo valor
-
-        # 🔹 Formatear valores y actualizar las etiquetas
         self.igv_label.setText(f"Total IGV: S/ {total_igv:.2f}")
         self.total_label.setText(f"Total importe: S/ {total_importe:.2f}")
 
-        print(f"[INFO] Resumen actualizado - IGV: S/ {total_igv:.2f}, Total: S/ {total_importe:.2f}")
+        logging.info(f" Resumen actualizado - IGV: S/ {total_igv:.2f}, Total: S/ {total_importe:.2f}")
+
+        # 🔹 Volver a conectar señales
+        self.productos_table.blockSignals(False)
 
     def actualizar_total_producto(self, row: int) -> None:
         """Recalcula el total del producto cuando cambia la cantidad o el precio base,
@@ -492,15 +523,18 @@ class BoletaApp(QWidget):
         if row < 0 or row >= self.productos_table.rowCount():
             return
 
-        cantidad_item = self.productos_table.item(row, 1)  # Cantidad
-        precio_base_item = self.productos_table.item(row, 4)  # Precio Base
-        total_item = self.productos_table.item(row, 7)  # Precio Total
-        igv_combo = self.productos_table.cellWidget(row, 5)  # QComboBox de IGV
+        cantidad_item = self.productos_table.item(row, 0)  # Cantidad
+        precio_base_item = self.productos_table.item(row, 3)  # Precio Base
+        total_item = self.productos_table.item(row, 6)  # Precio Total
+        igv_combo = self.productos_table.cellWidget(row, 4)  # QComboBox de IGV
 
         if not cantidad_item or not precio_base_item or not total_item or not igv_combo:
             return
 
         try:
+            # ❌ 🚨 Evita bucles infinitos
+            self.productos_table.blockSignals(True)  # 🔹 Desactiva señales
+
             cantidad = int(cantidad_item.text()) if cantidad_item.text().isdigit() else 1
             precio_base = float(
                 precio_base_item.text().replace("S/ ", "").replace(",", ".")) if precio_base_item.text() else 0.0
@@ -529,55 +563,71 @@ class BoletaApp(QWidget):
                 precio_base = round(total_actual / cantidad, 4)
                 igv_total = 0.0
 
-            # 🔹 Evitar reconexión innecesaria de eventos
-            try:
-                self.productos_table.itemChanged.disconnect()
-            except TypeError:
-                pass
-
-            # 🔹 Actualizar valores en la tabla
-            self.productos_table.setItem(row, 4, QTableWidgetItem(f"S/ {precio_base:.4f}"))  # Precio Base
-            self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {igv_total:.2f}"))  # Total IGV
-            self.productos_table.setItem(row, 7, QTableWidgetItem(f"S/ {total_actual:.2f}"))  # Mantener total fijo
-
-            # 🔹 Volver a conectar la señal `itemChanged`
-            self.productos_table.itemChanged.connect(lambda item: self.actualizar_total_producto(item.row()))
-
-            self.actualizar_resumen()
-            print(
-                f"[INFO] Fila {row} actualizada - IGV: {aplica_igv}, Precio Base: S/ {precio_base:.4f}, IGV Total: S/ {igv_total:.2f}, Precio Total: S/ {total_actual:.2f}")
+            # 🔹 Actualizar valores en la tabla sin disparar itemChanged
+            self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio_base:.4f}"))  # Precio Base
+            self.productos_table.setItem(row, 5, QTableWidgetItem(f"S/ {igv_total:.2f}"))  # Total IGV
+            self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {total_actual:.2f}"))  # Mantener total fijo
 
         except ValueError as e:
-            print(f"[WARNING] Error en los valores de la fila {row}: {e}")
+            logging.warning(f" Error en los valores de la fila {row}: {e}")
+
+        finally:
+            self.productos_table.blockSignals(False)  # ✅ 🔹 Reactiva señales
+
+            self.actualizar_resumen()
+            logging.info(f" Fila {row} actualizada correctamente.")
 
     def actualizar_igv_producto(self, row: int) -> None:
         """Recalcula el IGV y ajusta el precio base para mantener el precio total constante.
            Si IGV es "Sí", el precio base se reduce manteniendo el precio total.
            Si IGV es "No", el precio base vuelve a su valor original."""
 
+        logging.info(f"[INFO] Actualizando IGV del producto en fila {row}...")
+
         if row < 0 or row >= self.productos_table.rowCount():
+            logging.warning(f"[WARNING] Fila {row} fuera de rango. No se puede actualizar IGV.")
             return
 
-        cantidad_item = self.productos_table.item(row, 1)  # Cantidad
-        total_item = self.productos_table.item(row, 7)  # Precio Total del Producto
-        precio_base_item = self.productos_table.item(row, 4)  # Precio Base
-        igv_combo = self.productos_table.cellWidget(row, 5)  # Obtener el QComboBox de IGV
+        # Obtener elementos de la tabla
+        cantidad_item = self.productos_table.item(row, 0)  # Cantidad
+        total_item = self.productos_table.item(row, 6)  # Precio Total del Producto
+        precio_base_item = self.productos_table.item(row, 3)  # Precio Base
+        igv_combo = self.productos_table.cellWidget(row, 4)  # Obtener el QComboBox de IGV
 
-        if not cantidad_item or not total_item or not precio_base_item or not igv_combo:
+        # Verificación de existencia
+        if not cantidad_item:
+            logging.error(f"[ERROR] No se encontró la celda de cantidad en la fila {row}.")
             return
+        if not total_item:
+            logging.error(f"[ERROR] No se encontró la celda de total en la fila {row}.")
+            return
+        if not precio_base_item:
+            logging.error(f"[ERROR] No se encontró la celda de precio base en la fila {row}.")
+            return
+        if igv_combo is None:
+            logging.error(f"[ERROR] No se encontró un QComboBox en la fila {row}.")
+            return  # Evitar crash
 
         try:
             cantidad = int(cantidad_item.text()) if cantidad_item.text().isdigit() else 1
             total = float(total_item.text().replace("S/ ", "").replace(",", ".")) if total_item.text() else 0.0
             precio_base_actual = float(
                 precio_base_item.text().replace("S/ ", "").replace(",", ".")) if precio_base_item.text() else 0.0
-            aplica_igv = igv_combo.currentText() == "Sí"  # Si el usuario elige "Sí"
+            aplica_igv = igv_combo.currentText() == "Sí"
 
             if cantidad <= 0:
                 cantidad = 1  # Evitar divisiones por 0
 
+            logging.info(
+                f"[INFO] Cantidad: {cantidad}, Total: {total}, Precio Base: {precio_base_actual}, IGV: {aplica_igv}")
+
+            # 🔹 Desconectar señales temporalmente
+            logging.debug(f"[DEBUG] Bloqueando señales en fila {row}...")
+            self.productos_table.blockSignals(True)
+            igv_combo.blockSignals(True)
+
+            # Aplicar lógica de IGV
             if aplica_igv:
-                # Guardamos el precio base original si no está almacenado (para poder restaurarlo después)
                 if not hasattr(self, "precios_base_originales"):
                     self.precios_base_originales = {}
 
@@ -594,16 +644,23 @@ class BoletaApp(QWidget):
                 precio_base = self.precios_base_originales.get(row, precio_base_actual)
                 igv_total = 0.0
 
-            # 🔹 Actualizar los valores en la tabla
-            self.productos_table.setItem(row, 4, QTableWidgetItem(f"S/ {precio_base:.4f}"))  # Precio Base
-            self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {igv_total:.2f}"))  # Total IGV
+            # 🔹 Actualizar los valores en la tabla sin disparar eventos adicionales
+            logging.debug(
+                f"[DEBUG] Actualizando fila {row}: Precio Base: {precio_base:.4f}, IGV Total: {igv_total:.2f}")
+            self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio_base:.4f}"))  # Precio Base
+            self.productos_table.setItem(row, 5, QTableWidgetItem(f"S/ {igv_total:.2f}"))  # Total IGV
 
-
-            print(
-                f"[INFO] Fila {row} actualizada - IGV: {aplica_igv}, Precio Base: S/ {precio_base:.4f}, IGV Total: S/ {igv_total:.2f}")
+            logging.info(
+                f"[INFO] Fila {row} actualizada correctamente: Precio Base: S/ {precio_base:.4f}, IGV Total: S/ {igv_total:.2f}")
 
         except ValueError as e:
-            print(f"[WARNING] Error en los valores de la fila {row}: {e}")
+            logging.error(f"[ERROR] Error en los valores de la fila {row}: {e}")
+
+        finally:
+            # 🔹 Volver a habilitar señales después de actualizar la tabla
+            logging.debug(f"[DEBUG] Desbloqueando señales en fila {row}...")
+            self.productos_table.blockSignals(False)
+            igv_combo.blockSignals(False)
 
     def toggle_sugerencias(self, state):
         """Muestra o esconde sugerencias cuando se activa/desactiva el checkbox."""
@@ -638,7 +695,7 @@ class BoletaApp(QWidget):
 
             # 🔹 Mostrar confianza en el QLabel
             self.cliente_nuevo.setText(f"Coincidencia:{confidence:.2f}%")
-            print("[DEBUG] Checkbox activado: Mostrando sugerencias...")
+            logging.info(" Checkbox activado: Mostrando sugerencias...")
 
         else:
             # 🔹 Restaurar valores originales
@@ -651,12 +708,12 @@ class BoletaApp(QWidget):
 
             self.cliente_nuevo.setText("Coincidencia: 0.00%")
 
-            print("[DEBUG] Checkbox desactivado: Restaurando valores originales...")
+            logging.info(" Checkbox desactivado: Restaurando valores originales...")
 
     def procesar_boleta(self):
         """Actualiza los datos y luego los envía a la base de datos."""
 
-        print("[DEBUG] Procesando boleta...")
+        logging.info(" Procesando boleta...")
 
         # 🔹 Validar si hay un remitente seleccionado
         if self.selected_remitente_id is None:
@@ -667,11 +724,11 @@ class BoletaApp(QWidget):
 
         # 🔹 Asegurar que los datos están actualizados
         self.actualizar_datos()
-        print("[DEBUG] Datos actualizados correctamente:", self.data)
+        logging.info(" Datos actualizados correctamente:", self.data)
 
-        # 🔹 Validar si hay datos en `self.data`
+        # 🔹 Validar si hay datos en self.data
         if not self.data or 'productos' not in self.data or len(self.data['productos']) == 0:
-            print("[❌ ERROR] No hay productos en la boleta. No se puede continuar.")
+            logging.error(" No hay productos en la boleta. No se puede continuar.")
             QMessageBox.warning(self, "Error", "Debe agregar al menos un producto antes de emitir la boleta.")
             return
 
@@ -689,26 +746,26 @@ class BoletaApp(QWidget):
 
         try:
             enviar_boleta(self.data, self.selected_remitente_id, id_cliente)
-            print("✅ [SUCCESS] Boleta procesada correctamente.")
+            logging.info(" Boleta procesada correctamente.")
             QMessageBox.information(self, "Éxito", "La boleta fue emitida correctamente.")
         except Exception as e:
-            print(f"[❌ ERROR] Ocurrió un error al procesar la boleta: {e}")
+            logging.error(f" Ocurrió un error al procesar la boleta: {e}")
             QMessageBox.critical(self, "Error", f"Ocurrió un error al emitir la boleta:\n{e}")
 
     def actualizar_datos(self):
-        """Toma los valores actuales de los campos y los guarda en `self.data`."""
-        print("[INFO] Actualizando datos...")
+        """Toma los valores actuales de los campos y los guarda en self.data."""
+        logging.info(" Actualizando datos...")
 
-        # 🔹 Evita intentar `json.loads` si `self.data` ya es un diccionario
+        # 🔹 Evita intentar json.loads si self.data ya es un diccionario
         if isinstance(self.data, str):
             try:
                 self.data = json.loads(self.data)
             except json.JSONDecodeError as e:
-                print(f"[ERROR] No se pudo decodificar JSON: {e}")
+                logging.error(" No se pudo decodificar JSON: {e}")
                 return
 
         if not isinstance(self.data, dict):
-            print("[ERROR] `self.data` no es un diccionario válido.")
+            logging.error(" self.data no es un diccionario válido.")
             return
 
         # 🔹 Actualizar cliente
@@ -723,24 +780,24 @@ class BoletaApp(QWidget):
         productos = []
         for row in range(self.productos_table.rowCount()):
             try:
-                cantidad = int(self.productos_table.item(row, 1).text()) if self.productos_table.item(row, 1) else 1
+                cantidad = int(self.productos_table.item(row, 0).text()) if self.productos_table.item(row, 0) else 1
                 precio = float(
-                    self.productos_table.item(row, 4).text().replace("S/ ", "")) if self.productos_table.item(row,
-                                                                                                              4) else 0.0
+                    self.productos_table.item(row, 3).text().replace("S/ ", "")) if self.productos_table.item(row,
+                                                                                                              3) else 0.0
                 igv = 1 if self.productos_table.cellWidget(row,
-                                                           5).currentText() == "Sí" else 0  # Obtiene el valor del QComboBox
+                                                           4).currentText() == "Sí" else 0  # Obtiene el valor del QComboBox
                 total_igv = float(
+                    self.productos_table.item(row, 5).text().replace("S/ ", "")) if self.productos_table.item(row,
+                                                                                                              5) else 0.0
+                total_producto = float(
                     self.productos_table.item(row, 6).text().replace("S/ ", "")) if self.productos_table.item(row,
                                                                                                               6) else 0.0
-                total_producto = float(
-                    self.productos_table.item(row, 7).text().replace("S/ ", "")) if self.productos_table.item(row,
-                                                                                                              7) else 0.0
 
                 producto = {
                     "cantidad": cantidad,
-                    "descripcion": self.productos_table.item(row, 3).text() if self.productos_table.item(row,
+                    "descripcion": self.productos_table.item(row, 2).text() if self.productos_table.item(row,
                                                                                                          3) else "",
-                    "unidad_medida": self.productos_table.item(row, 2).text() if self.productos_table.item(row,
+                    "unidad_medida": self.productos_table.item(row, 1).text() if self.productos_table.item(row,
                                                                                                            2) else "",
                     "precio_base": precio,
                     "Igv": igv,
@@ -752,18 +809,18 @@ class BoletaApp(QWidget):
                 productos.append(producto)
 
             except ValueError as e:
-                print(f"[WARNING] Error al procesar fila {row}: {e}")
+                logging.warning(f" Error al procesar fila {row}: {e}")
 
         self.data['productos'] = productos
         self.data['total'] = sum(p['precio_total'] for p in productos)  # 🔹 Recalcular total automáticamente
 
-        print("[DEBUG] Datos actualizados en `self.data`:", self.data)
+        logging.info(" Datos actualizados en self.data:", self.data)
 
     def fill_form_fields(self, data):
         """Llena los campos del formulario con los datos del JSON."""
         data =json.loads(data)
         if not data:
-            print("[ERROR] No hay datos para llenar el formulario.")
+            logging.error(" No hay datos para llenar el formulario.")
             return
 
         # Cargar datos del cliente
@@ -772,9 +829,9 @@ class BoletaApp(QWidget):
             self.nombre_entry.setText(data.get("cliente", ""))
             self.direccion_entry.setText(data.get("direccion", ""))
             self.ruc_cliente.setText(data.get("ruc", ""))
-            print("[Debug] Cargado los datos del cliente")
+            logging.info(" Cargado los datos del cliente")
         except Exception as e:
-            print(f"[ERROR] No se pudieron cargar los datos del cliente: {e}")
+            logging.error(" No se pudieron cargar los datos del cliente: {e}")
             return
 
         # Llenar tabla de productos
@@ -799,10 +856,7 @@ class BoletaApp(QWidget):
                 total_producto = cantidad*precio
                 igv_producto = total_producto*0.18 if aplica_igv else 0
 
-                # 🔹 Crear el QCheckBox para seleccionar el producto
-                checkbox = QCheckBox()
-                checkbox.stateChanged.connect(lambda state, row=row: self.procesar_checkbox(state, row))
-                self.productos_table.setCellWidget(row, 0, checkbox)  # Columna 0: Checkbox
+
 
                 # 🔹 Crear el QComboBox para IGV
                 igv_combo = QComboBox()
@@ -813,72 +867,23 @@ class BoletaApp(QWidget):
                 igv_combo.currentTextChanged.connect(lambda text, row=row: self.actualizar_igv_producto(row))
 
 
-                self.productos_table.setItem(row, 1, QTableWidgetItem(str(cantidad)))  # Cantidad
-                self.productos_table.setItem(row, 2, QTableWidgetItem(producto.get("unidad_medida", "")))  # Unidad
-                self.productos_table.setItem(row, 3,
+                self.productos_table.setItem(row, 0, QTableWidgetItem(str(cantidad)))  # Cantidad
+                self.productos_table.setItem(row, 1, QTableWidgetItem(producto.get("unidad_medida", "")))  # Unidad
+                self.productos_table.setItem(row, 2,
                                                  QTableWidgetItem(producto.get("descripcion", "")))  # Descripción
-                self.productos_table.setItem(row, 4, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio
-                self.productos_table.setCellWidget(row, 5, igv_combo)  # IGV con QComboBox
-                self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {igv_producto:.2f}"))  # Total IGV
-                self.productos_table.setItem(row, 7, QTableWidgetItem(f"S/ {total_producto:.2f}"))  # Total Producto
+                self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio
+                self.productos_table.setCellWidget(row, 4, igv_combo)  # IGV con QComboBox
+                self.productos_table.setItem(row, 5, QTableWidgetItem(f"S/ {igv_producto:.2f}"))  # Total IGV
+                self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {total_producto:.2f}"))  # Total Producto
 
             # 🔹 Conectar evento para actualizar el total si el usuario cambia la cantidad o el precio
             self.productos_table.itemChanged.connect(lambda item: self.actualizar_total_producto(item.row()))
 
             self.actualizar_resumen()
         except Exception as e:
-            print(f"[ERROR] Ocurrió un problema al llenar los datos en la fila {row}: {e}")
-            print(f"[ERROR] Datos del producto problemático: {producto}")
+            logging.error(" Ocurrió un problema al llenar los datos en la fila {row}: {e}")
+            logging.error(" Datos del producto problemático: {producto}")
 
-    def procesar_checkbox(self, state, row):
-        """Procesa la fila cuando se marca o desmarca el checkbox de sugerencia."""
-
-        print(f"[DEBUG] Checkbox en fila {row} cambiado. Estado: {state}")
-
-        descripcion = self.productos_table.item(row, 3)
-        if not descripcion:
-            print(f"[ERROR] No hay descripción en la fila {row}. No se puede procesar.")
-            return
-
-        descripcion = descripcion.text()
-
-        if state == Qt.Checked:
-            result = match_product_fuzzy(descripcion)
-
-            if not result or len(result) == 0:
-                print(f"[ERROR] No se encontró una coincidencia para: {descripcion}")
-                return  # 🔹 Si no hay resultado, salir
-
-            result = result[0]  # 🔹 Tomar el primer resultado de la lista
-            id_producto, name, unit, price, confidence = result
-
-            # 🔹 Guardar los valores originales antes de modificar
-            self.productos_originales[row] = {
-                "unidad": self.productos_table.item(row, 2).text(),
-                "descripcion": self.productos_table.item(row, 3).text(),
-                "precio": self.productos_table.item(row, 4).text(),
-                "igv": self.productos_table.cellWidget(row, 5).currentText(),
-            }
-
-            # 🔹 Actualizar valores en la tabla
-            self.productos_table.setItem(row, 2, QTableWidgetItem(unit))  # Unidad
-            self.productos_table.setItem(row, 3, QTableWidgetItem(name))  # Descripción
-            self.productos_table.setItem(row, 4, QTableWidgetItem(f"S/ {price}"))  # Precio
-            self.productos_table.cellWidget(row, 5).setCurrentText("Sí")  # IGV a Sí
-
-            print(
-                f"[DEBUG] Producto actualizado en fila {row}: ID={id_producto}, Nombre={name}, Unidad={unit}, Precio={price}, Confianza={confidence:.2f}%")
-
-        else:
-            # 🔹 Restaurar valores originales al desmarcar
-            if row in self.productos_originales:
-                original = self.productos_originales[row]
-                self.productos_table.setItem(row, 2, QTableWidgetItem(original["unidad"]))
-                self.productos_table.setItem(row, 3, QTableWidgetItem(original["descripcion"]))
-                self.productos_table.setItem(row, 4, QTableWidgetItem(original["precio"]))
-                self.productos_table.cellWidget(row, 5).setCurrentText(original["igv"])
-                print(
-                    f"[DEBUG] Producto deseleccionado en fila {row}: Restaurado {original['descripcion']}, Unidad: {original['unidad']}, Precio: {original['precio']}")
 
     def display_image(self, file_path):
         """Muestra la imagen seleccionada en la interfaz."""
@@ -886,17 +891,17 @@ class BoletaApp(QWidget):
         self.img_label.setPixmap(pixmap)
 
     def abrir_seleccion_remitente(self):
-        print("[DEBUG] Abriendo selector de remitente...")
+        logging.info(" Abriendo selector de remitente...")
         dialog = RemitenteDialog(self)
 
         if dialog.exec_() == QDialog.Accepted:
-            print("[DEBUG] Remitente seleccionado correctamente.")
+            logging.info(" Remitente seleccionado correctamente.")
 
             if hasattr(dialog, 'selected_remitente') and hasattr(dialog, 'selected_remitente_id'):
                 self.selected_remitente = dialog.selected_remitente
                 self.selected_remitente_id = dialog.selected_remitente_id
 
-                print(f"[DEBUG] Nombre Remitente: {self.selected_remitente}, ID: {self.selected_remitente_id}")
+                logging.info(f" Nombre Remitente: {self.selected_remitente}, ID: {self.selected_remitente_id}")
 
                 self.remitente_label.setText(f"Remitente: {self.selected_remitente}")
 
@@ -905,9 +910,7 @@ class BoletaApp(QWidget):
 
                 self.actualizar_serie_boleta()
             else:
-                print("[ERROR] No se pudo obtener el remitente seleccionado.")
+                logging.error(" No se pudo obtener el remitente seleccionado.")
                 QMessageBox.warning(self, "Error", "No se pudo obtener el remitente seleccionado.")
         else:
-            print("[WARNING] El selector de remitente se cerró sin seleccionar.")
-
-
+            logging.warning(" El selector de remitente se cerró sin seleccionar.")
