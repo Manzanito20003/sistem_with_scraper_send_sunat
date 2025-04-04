@@ -1,6 +1,7 @@
 
 import sqlite3
 from difflib import get_close_matches,SequenceMatcher
+from rapidfuzz import process, fuzz
 
 # Ruta absoluta de la base de datos
 DB_PATH = r"C:\Users\jefersson\Desktop\Sunat_boleta\DataBase\billing_system.db"
@@ -230,50 +231,57 @@ def get_invoices():
 
 
 
+from rapidfuzz import process, fuzz
+
 def match_product_fuzzy(search_term):
     """
-    Busca un producto en la base de datos con coincidencias exactas y aproximadas.
+    Busca un producto en la base de datos con coincidencias exactas y aproximadas (fuzzy).
 
     :param search_term: Nombre parcial o con errores del producto
     :return: Lista de tuplas con (id, name, unit, price, confidence)
     """
     conn, cursor = connect()
 
-    # 🔹 1️⃣ Obtener todos los productos disponibles en la BD
-    cursor.execute("SELECT id, name, unit, price FROM products")
-    products = cursor.fetchall()  # Lista completa de productos
-    product_names = [row[1] for row in products]  # Solo los nombres de productos
-
-    # 🔹 2️⃣ Intentar encontrar coincidencias exactas con `LIKE`
+    # 🔹 1️⃣ Buscar coincidencias exactas con LIKE
     query = """
-    SELECT id, name, unit, price FROM products 
-    WHERE name LIKE ? 
-    ORDER BY LENGTH(name) ASC;
+       SELECT id, name, unit, price FROM products 
+       WHERE LOWER(name) LIKE LOWER(?) 
+       ORDER BY LENGTH(name) ASC;
     """
     cursor.execute(query, (f"%{search_term}%",))
     exact_matches = cursor.fetchall()
 
+    if exact_matches:
+        results = [(row[0], row[1], row[2], row[3], 100) for row in exact_matches]
+        conn.close()
+        return results
+
+    # 🔹 2️⃣ Obtener todos los productos disponibles en la BD
+    cursor.execute("SELECT id, name, unit, price FROM products")
+    products = cursor.fetchall()
+    product_names = [row[1] for row in products]
+
+    # 🔹 3️⃣ Buscar coincidencias aproximadas (fuzzy)
     matches_with_confidence = []
+    if product_names:
+        results = process.extract(
+            search_term,
+            product_names,
+            scorer=fuzz.partial_ratio,
+            limit=5,
+            score_cutoff=65
+        )
 
-    # 🔹 3️⃣ Si no hay coincidencias exactas, buscar con fuzzy matching
-    if not exact_matches and product_names:
-        close_matches = get_close_matches(search_term, product_names, n=5, cutoff=0.65)  # 5 sugerencias con 0.65%+ similitud
-
-        for match in close_matches:
-            confidence = calculate_similarity(search_term, match)
-
-            # Buscar el producto completo en la BD
-            cursor.execute(query, (f"%{match}%",))
-            matched_product = cursor.fetchone()
-
-            if matched_product:
-                matches_with_confidence.append((*matched_product, confidence))
+        for name, score, index in results:
+            product = products[index]
+            matches_with_confidence.append((*product, score))#tamos desempacando el producto y agregando el score
 
     conn.close()
 
-    # 🔹 4️⃣ Retornar coincidencias exactas o aproximadas, ordenadas por confianza
-    if exact_matches:
-        return [(row[0], row[1], row[2], row[3], 100) for row in exact_matches]  # Exacto = 100%
+    # 🔹 4️⃣ Retornar resultados o mensaje vacío
+    if not matches_with_confidence:
+        print(f"No se encontraron coincidencias para '{search_term}'.")
+        return []
 
     return sorted(matches_with_confidence, key=lambda x: x[4], reverse=True)
 
@@ -306,16 +314,7 @@ def match_client_fuzzy(search_term):
         close_matches = get_close_matches(search_term, client_names, n=5,
                                           cutoff=0.4)  # Baja el cutoff para más precisión
 
-        for match in close_matches:
-            confidence = calculate_similarity(search_term, match)
 
-            # Evitar coincidencias con confianza baja
-            if confidence > 50:
-                cursor.execute(query, (f"%{match}%",))
-                matched_client = cursor.fetchone()
-
-                if matched_client:
-                    matches_with_confidence.append((*matched_client, confidence))
 
     conn.close()
 
@@ -395,7 +394,7 @@ def mostrar_bd():
         print(invoice)
 # Ejecutar la creación de la base de datos y sus tablas
 def test_maching_prod():
-    print(match_product_fuzzy(""))
+    print(match_product_fuzzy("CEBAD"))
 
 if __name__ == "__main__":
     test_maching_prod()
