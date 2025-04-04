@@ -1,4 +1,4 @@
-import difflib
+
 import sqlite3
 from difflib import get_close_matches,SequenceMatcher
 
@@ -227,26 +227,8 @@ def get_invoices():
     return invoices
 #tool to search for similar names
 
-def calculate_similarity(a, b):
-    """Calcula la similitud entre dos cadenas con más precisión"""
-    similarity = SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-    # Ajustamos el porcentaje realista
-    length_factor = min(len(a), len(b)) / max(len(a), len(b))
-    adjusted_similarity = similarity * length_factor  # Ajuste basado en longitud
-
-    return round(adjusted_similarity * 100, 2)
 
 
-def calculate_similarity(text1, text2):
-    """
-    Calcula la similitud entre dos cadenas de texto usando la métrica de Levenshtein.
-
-    :param text1: Texto ingresado por el usuario
-    :param text2: Texto de la BD
-    :return: Porcentaje de similitud (0 - 100)
-    """
-    return round(difflib.SequenceMatcher(None, text1.lower(), text2.lower()).ratio() * 100, 2)
 
 def match_product_fuzzy(search_term):
     """
@@ -275,7 +257,7 @@ def match_product_fuzzy(search_term):
 
     # 🔹 3️⃣ Si no hay coincidencias exactas, buscar con fuzzy matching
     if not exact_matches and product_names:
-        close_matches = get_close_matches(search_term, product_names, n=5, cutoff=0.4)  # 5 sugerencias con 40%+ similitud
+        close_matches = get_close_matches(search_term, product_names, n=5, cutoff=0.65)  # 5 sugerencias con 0.65%+ similitud
 
         for match in close_matches:
             confidence = calculate_similarity(search_term, match)
@@ -412,11 +394,11 @@ def mostrar_bd():
     for invoice in get_invoices():
         print(invoice)
 # Ejecutar la creación de la base de datos y sus tablas
-
+def test_maching_prod():
+    print(match_product_fuzzy(""))
 
 if __name__ == "__main__":
-    create_tables()
-
+    test_maching_prod()
 
 
 

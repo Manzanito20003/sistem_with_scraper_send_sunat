@@ -134,22 +134,15 @@ class ProductView(QWidget):
 
     def fill_form_fields(self, data):
         """Llena los campos del formulario con los datos del JSON."""
-        logging.info(" Llenando formulario con los datos del JSON...")
+        logging.info(" Llenando campos de productos")
 
         if not data:
             logging.error(" No hay datos para llenar el formulario.")
             return
 
-        # Cargar datos del cliente
-
-        if self.parent and hasattr(self.parent.cliente_view, "fill_form_client"):
-            self.parent.cliente_view.fill_form_client(data)  # ✅ Llamar desde `parent`
-        else:
-            logging.error("No se pudo acceder a fill_form_client. `parent` no está definido.")
-
 
         # Llenar tabla de productos
-        productos = data.get("productos", [])
+        productos = data
         print("productos:",productos)
         self.productos_table.setRowCount(len(productos))
         print("Entrando a llenar los productos")
@@ -344,10 +337,6 @@ class ProductView(QWidget):
         if row < 0 or row >= self.productos_table.rowCount():
             logging.warning(f"[WARNING] Fila {row} fuera de rango. No se puede actualizar la unidad.")
             return
-
-
-
-
 
     def actualizar_producto_seleccionado(self, row, combo_box):
         """Cuando el usuario elige un producto del QComboBox, actualiza la fila con sus datos."""

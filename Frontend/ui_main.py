@@ -27,6 +27,7 @@ from PyQt5.QtCore import Qt
 
 #log
 import logging
+import json
 
 logging.basicConfig(
     level=logging.DEBUG,  # Muestra mensajes desde DEBUG hacia arriba
@@ -137,33 +138,53 @@ class BoletaApp(QWidget):
         self.selected_remitente_id = None
         self.tipo_documento_combo= None
         self.product_view = ProductView(self)  # ✅ Pasamos `self` como `parent`
-        self.cliente_view = ClienteView(self, self.tipo_documento_combo)
+        self.cliente_view = ClienteView(self,self.tipo_documento_combo)
         self.resumen_view = ResumenView()
         self.initUI()
 
         self.actualizar_tipo_documento= None
 
-
-
-
-
     def subir_imagen(self):
-        logging.info("Subiendo imagen...")
+        logging.info(" Iniciando función subir_imagen...")
+
         try:
+            # Selección de archivo
             file_path, _ = QFileDialog.getOpenFileName()
-            if file_path:
-                data=process_image_to_json(file_path)
 
-                self.display_image(file_path)
+            if not file_path:
+                logging.warning(" No se seleccionó ningún archivo.")
+                QMessageBox.critical("Fallo la eleccion de img.")
+                return
+
+            # Procesar imagen
+            data = process_image_to_json(file_path)
+
+            # Convertir JSON a diccionario
+            data = json.loads(data)
 
 
-                self.cliente_view.fill_form_client(data)
-                self.product_view.fill_form_fields(data)
-                logging.info("Imagen procesada correctamente.")
+
+            # Extraer y registrar contenido
+            cliente_data = data["cliente"]
+            product_data = data["productos"]
+
+
+            # Mostrar imagen (si lo deseas)
+            self.display_image(file_path)
+
+            self.cliente_view.fill_form_client(cliente_data)
+
+            self.product_view.fill_form_fields(product_data)
+
+            logging.info("Imagen procesada y datos cargados correctamente.")
+
+        except json.JSONDecodeError as e:
+            logging.error(f" Error al decodificar el JSON: {e}")
+            QMessageBox.critical(self, "Error", f"El archivo no contiene un JSON válido.\n{e}")
+
         except Exception as e:
-            logging.error(f"Error al procesar la imagen: {e}")
-            QMessageBox.critical(self, "Error", f"Error al procesar la imagen: {e}")
-
+            logging.error(f"Error inesperado al procesar la imagen: {e}", exc_info=True)
+            QMessageBox.critical(self, "Error", f"Ocurrió un error inesperado:\n{e}")
     def initUI(self):
         main_layout = QHBoxLayout()
 
@@ -191,6 +212,7 @@ class BoletaApp(QWidget):
         tipo_label = QLabel("Tipo de documento:")
         self.tipo_documento_combo = QComboBox()
         self.tipo_documento_combo.addItems(["Boleta", "Factura"])
+
         self.tipo_documento_combo.currentTextChanged.connect(
             lambda current_texto: self.resumen_view.actualizar_serie_y_numero(
                 self.selected_remitente_id,

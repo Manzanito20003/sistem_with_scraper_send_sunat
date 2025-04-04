@@ -53,9 +53,11 @@ class ResumenView(QWidget):
         self.total_label.setText(f"Total importe: S/ {total_importe:.2f}")
 
 
-    def actualizar_serie_y_numero(self,id_sender,tipo_documento,):
+    def actualizar_serie_y_numero(self,id_sender,tipo_documento):
         """Actualiza la serie y número de documento basado en la selección de tipo y el ID del remitente."""
 
+        if(id_sender==None):
+            id_sender=0
 
 
         num_documento = get_next_invoice_number(id_sender)
