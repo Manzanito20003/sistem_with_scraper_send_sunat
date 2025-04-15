@@ -63,8 +63,8 @@ class ClienteView(QWidget):
         cliente_layout.addWidget(QLabel("RUC"), 1, 0)
         cliente_layout.addWidget(self.ruc_cliente, 1, 1, 1, 2)
 
-        cliente_layout.addWidget(QLabel("Fecha"), 1, 5)
-        cliente_layout.addWidget(self.fecha_entry, 1, 6, 1, 1)
+        cliente_layout.addWidget(QLabel("Fecha"), 1, 3)
+        cliente_layout.addWidget(self.fecha_entry, 1, 4, 1, 1)
 
         cliente_box.setLayout(cliente_layout)
 

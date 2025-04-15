@@ -15,7 +15,7 @@ class ProductView(QWidget):
     def __init__(self, parent=None):
         super().__init__()
         self.parent = parent  # Referencia al contenedor principal
-        self.data = {}  # ✅ Inicializar datos del formulario
+        self.data = {}
         self.productos_table = None  # Inicializar correctamente la tabla
 
         self.initUI()
@@ -35,15 +35,19 @@ class ProductView(QWidget):
         btn_agregar_producto.clicked.connect(self.agregar_fila_manual)
         productos_layout_inner.addWidget(btn_agregar_producto)
 
-        self.productos_table = QTableWidget(0, 7)  # Cambiar de 8 a 7 columnas
+
+
+
+        self.productos_table = QTableWidget(0, 8)  # Cambiar de 8 a 7 columnas
         self.productos_table.setHorizontalHeaderLabels(
-            ["Cantidad", "Unidad", "Descripción", "Precio Base", "IGV", "Total IGV", "Precio total"]
+            ["Cantidad", "Unidad", "Descripción", "Precio Base", "IGV", "Total IGV", "Precio total","Borrar"]
         )
 
         self.productos_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        self.productos_table.setColumnWidth(0, 80)  # Cantidad (más estrecha)
-        self.productos_table.setColumnWidth(4, 80)  # IGV (más estrecha)
+        self.productos_table.setColumnWidth(0, 60)  # Cantidad (más estrecha)
+        self.productos_table.setColumnWidth(4, 60)  # IGV (más estrecha)
         self.productos_table.setColumnWidth(2, 200)  # Descripción
+        self.productos_table.setColumnWidth(7, 50)  # Precio Base
 
         self.productos_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         self.productos_table.setFont(QFont("Arial", 10))
@@ -51,8 +55,15 @@ class ProductView(QWidget):
         productos_layout_inner.addWidget(self.productos_table)
         productos_box.setLayout(productos_layout_inner)
 
+        # Asegurarse de que la celda sea editable
+        self.productos_table.setEditTriggers(QTableWidget.DoubleClicked | QTableWidget.SelectedClicked)
+
+        # Conectar el evento cellChanged al método de autocompletado
+        self.productos_table.cellChanged.connect(self.activar_autocompletado)
+
         productos_layout.addWidget(productos_box)  # 🔹 Agregar productos_box al layout contenedor
-        self.productos_table.cellClicked.connect(self.activar_autocompletado)
+
+
         self.productos_table.itemChanged.connect(self.recalcular_por_cambios)
 
         self.setLayout(productos_layout)  # 🔹 Asignar el layout al widget principal
@@ -72,7 +83,7 @@ class ProductView(QWidget):
             logging.info(f"[INFO] Descripción actual: {descripcion_actual}")
 
             sugerencias_fuzzy = match_product_fuzzy(descripcion_actual)
-
+            logging.info(f"[INFO] Sugerencias fuzzy: {sugerencias_fuzzy}")
             if not sugerencias_fuzzy:
                 logging.info("[INFO] No se encontraron sugerencias fuzzy.")
                 return
@@ -81,7 +92,7 @@ class ProductView(QWidget):
                 "KILOGRAMO": "KL",
                 "UNIDAD": "UN",
                 "CAJA": "CJ",
-                "BOLSA": "BG"
+                "BOLSA": "BS"
             }
 
             combo_box = QComboBox()
@@ -91,10 +102,11 @@ class ProductView(QWidget):
             combo_box.setFocus()
 
             # Agregar sugerencias sin activar evento
-            for id_producto, nombre, unidad, precio, _ in sugerencias_fuzzy:
-                abrev = abreviaturas.get(unidad.upper(), unidad)
-                texto_opcion = f"{nombre} | S/ {precio:.2f} | {abrev}"
-                combo_box.addItem(texto_opcion, (nombre, precio, unidad, id_producto))
+            for id_producto, nombre, unidad, precio,igv,_ in sugerencias_fuzzy:
+                abrev = abreviaturas.get(unidad, unidad)
+                estado_igv = "Sí" if igv == 1 else "No"
+                texto_opcion = f"{nombre} | S/ {precio:.2f} | {abrev} | {estado_igv}"
+                combo_box.addItem(texto_opcion, (nombre, precio, unidad,igv, id_producto))
 
             combo_box.setCurrentIndex(-1)  # ⛔ No selecciones nada por defecto
             combo_box.setEditText(descripcion_actual)  # Mantener el texto original
@@ -182,15 +194,16 @@ class ProductView(QWidget):
                 self.productos_table.setItem(row, 0, QTableWidgetItem(str(cantidad)))  # Cantidad
                 self.productos_table.setCellWidget(row, 1, unidad_combo) # Unidad Qcombobox
                 self.productos_table.setItem(row, 2,QTableWidgetItem(producto.get("descripcion", "")))  # Descripción
+                #conectaremso el sugerencias
+
                 self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio
                 self.productos_table.setCellWidget(row, 4, igv_combo)  # IGV con QComboBox
                 self.productos_table.setItem(row, 5, QTableWidgetItem(f"S/ {igv_producto:.2f}"))  # Total IGV
                 self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {total_producto:.2f}"))  # Total Producto
-
-            # 🔹 Conectar evento para actualizar el total si el usuario cambia la cantidad o el precio
-            #self.productos_table.itemChanged.connect(self.recalcular_por_cambios)
+                # Agregar botón de borrar
+                self.agregar_boton_borrar(row)  # Agregar botón de borrar a la fila
             # 🔹 Actualizar resumen
-            self.actualizar_resumen()
+            #self.actualizar_resumen()
         except Exception as e:
             logging.error(f"Ocurrió un problema al llenar los datos en la fila {row}: {e}")
             logging.error(f" Datos del producto problemático: {producto}")
@@ -374,7 +387,7 @@ class ProductView(QWidget):
         self.parent.resumen_view.actualizar_total_igv_and_importe(total_igv, total_importe)
 
 
-        logging.info(f" Resumen actualizado - IGV: S/ {total_igv:.2f}, Total: S/ {total_importe:.2f}")
+        logging.info(f" Resumen actualizado - IGV: S/ {total_igv:.2f}, Total: S/ {total_importe:.2f}, IGV:{total_igv}")
 
         # 🔹 Volver a conectar señales
         self.productos_table.blockSignals(False)
@@ -388,7 +401,7 @@ class ProductView(QWidget):
         row = item.row()
         col = item.column()
 
-        self.productos_table.blockSignals(True)  # 🚫 Evita bucles infinitos
+        self.productos_table.blockSignals(True)  # 🚫 Evita bucles
 
         if col == col_precio_base:
             self.actualizar_precio_base(row)
@@ -470,8 +483,47 @@ class ProductView(QWidget):
         igv_combo = QComboBox()
         igv_combo.addItems(["No", "Sí"])
         self.productos_table.setCellWidget(fila, 4, igv_combo)
+        igv_combo.currentTextChanged.connect(lambda text, row=fila: self.actualizar_igv_producto(row))
 
         # Total IGV y total producto en 0
         self.productos_table.setItem(fila, 5, QTableWidgetItem("S/ 0.00"))
         self.productos_table.setItem(fila, 6, QTableWidgetItem("S/ 0.00"))
+        # Agregar botón de borrar
+        self.agregar_boton_borrar(fila)
 
+    def agregar_boton_borrar(self, row):
+        """Agregar un botón para borrar la fila especificada."""
+        # Crear el botón de borrar
+        boton_borrar = QPushButton("X")
+
+        boton_borrar.setStyleSheet('''
+            QPushButton {
+                background-color: red;
+                color: white;
+                border-radius: 5px;
+                padding: 8px;          /* espacio interno (contenido) */
+                margin: 3
+                px;  
+            }
+            QPushButton:hover {
+                background-color: darkred;
+            }
+        """
+        """  # Estilo del botón
+            QPushButton:pressed {
+                background-color: lightcoral;
+            }
+        
+        
+        ''')  # Estilo del botón
+
+        # Conectar el clic del botón con el método que borra la fila
+        boton_borrar.clicked.connect(lambda: self.borrar_fila(row))
+
+        # Colocar el botón en la celda correspondiente (columna 7)
+        self.productos_table.setCellWidget(row, 7, boton_borrar)
+
+    def borrar_fila(self, row):
+        """Eliminar la fila de la tabla."""
+        self.productos_table.removeRow(row)
+        self.actualizar_resumen()

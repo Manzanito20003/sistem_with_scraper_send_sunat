@@ -1,19 +1,15 @@
 
 
-import sys
-import json
-from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QTableWidget, QTableWidgetItem,
-                             QFileDialog, QLineEdit, QHBoxLayout, QCheckBox, QGroupBox, QGridLayout, QHeaderView,
-                             QListWidget, QDialog, QMessageBox, QDateEdit)
-from PyQt5.QtGui import QPixmap, QFont, QIntValidator, QDoubleValidator
-from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtWidgets import QComboBox
+from PyQt5.QtWidgets import ( QWidget, QLabel, QPushButton, QVBoxLayout,
+                             QFileDialog, QHBoxLayout, QGroupBox,
+                              QDialog, QMessageBox)
+from PyQt5.QtGui import QPixmap
 
 from Backend.img_to_json import process_image_to_json
 
 # DB
-from DataBase.database import get_senders_and_id, insert_client, insert_product, insert_invoice, get_next_invoice_number, get_products
-from DataBase.database import match_client_fuzzy,match_product_fuzzy
+from DataBase.database import insert_client, insert_product, insert_invoice, get_next_invoice_number, get_products
+from DataBase.database import match_client_fuzzy
 from Frontend.cliente_view import ClienteView
 from Frontend.producto_view import ProductView
 from Frontend.remitente_dialog import RemitenteDialog
@@ -30,12 +26,13 @@ import logging
 import json
 
 logging.basicConfig(
-    level=logging.DEBUG,  # Muestra mensajes desde DEBUG hacia arriba
-    format="%(asctime)s - %(levelname)s - %(message)s",  # Formato de log
-    datefmt="%Y-%m-%d %H:%M:%S",  # Formato de fecha
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",  # Format log
+    datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
-        logging.FileHandler("app.log"),  # Guarda logs en un archivo
-        logging.StreamHandler()  # Muestra logs en consola
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+
     ]
 )
 
@@ -43,16 +40,16 @@ logging.basicConfig(
 from PyQt5.QtCore import QThread, pyqtSignal
 
 class BoletaWorker(QThread):
-    finished = pyqtSignal()           # Señal que se emite cuando termina con éxito
-    error = pyqtSignal(str)           # Señal que se emite si hay un error (con mensaje)
+    finished = pyqtSignal()           # Señal cuando termina con éxito
+    error = pyqtSignal(str)           # Señal si hay un error (con mensaje)
 
     def __init__(self, data_boleta):
         super().__init__()
         self.data_boleta = data_boleta
 
-    def run(self):  # Esta función corre en segundo plano cuando llamas `start()`
+    def run(self):  # Esta función en segundo plano para enviar la boleta
         try:
-            enviar_boleta(self.data_boleta)  # Aquí va tu función pesada
+            enviar_boleta(self.data_boleta)
             self.finished.emit()             # Señal de éxito
         except Exception as e:
             self.error.emit(str(e))          # Señal de error
@@ -65,14 +62,7 @@ def enviar_boleta(data):
     id_sender=data["id_remitente"]
     logging.info("Iniciando proceso de emisión de boleta...")
     print("tuype:",type(data))
-    print("Data: ",data)
-    if not data:
-        logging.error(" No hay datos cargados en data. ¿Cargaste un JSON correctamente?")
-        return
 
-    if id_sender is None:
-        logging.error("No se ha seleccionado un remitente. No se puede continuar.")
-        return
 
 
     logging.info(f"ID del remitente seleccionado: {id_sender}")
@@ -103,13 +93,13 @@ def enviar_boleta(data):
             print("producto",producto)
             print("descripcion",producto.get("descripcion"))
             insert_product(
-                id_client,
+                id_sender,
                 producto.get("descripcion"),
                 producto.get("unidad_medida"),
                 producto.get("precio_base"),
                 producto.get("Igv")
             )
-        logging.info(f"Se insertaron {len(data['productos'])} productos en la BD.")
+
 
         # 🔹 Insertar la boleta en la BD
         insert_invoice(id_client, id_sender, total_pagado, igv_total)

@@ -1,11 +1,12 @@
-
+import logging
+import os
 import sqlite3
 from difflib import get_close_matches,SequenceMatcher
 from rapidfuzz import process, fuzz
 
 # Ruta absoluta de la base de datos
-DB_PATH = r"C:\Users\jefersson\Desktop\Sunat_boleta\DataBase\billing_system.db"
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'billing_system.db')
 def connect():
     """Conecta a la base de datos con la ruta absoluta"""
     try:
@@ -43,13 +44,15 @@ def create_tables():
     -- Tabla de Productos
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_cliente INTEGER NOT NULL
-        name TEXT UNIQUE,
-        unit TEXT CHECK (unit IN ('KILOGRAMO', 'CAJA', 'UNIDAD', 'BOLSA')),
+        id_sender INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        unit TEXT CHECK (unit IN ('KILOGRAMO', 'CAJA', 'UNIDAD', 'BOLSA')) NOT NULL,
         price REAL NOT NULL,
         igv INTEGER NOT NULL DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (id_sender, name, unit,price,igv),  -- Asegura que no haya duplicados para el mismo remitente
     );
+
 
     -- Tabla de Boletas (Facturas)
     CREATE TABLE IF NOT EXISTS invoices (
@@ -94,7 +97,7 @@ def insert_sender(name, ruc, user, password):
     finally:
         conn.close()
 
-import sqlite3  # Asegúrate de importar sqlite3
+
 
 def insert_client(name, dni, ruc):
     """Inserta un nuevo cliente en la base de datos si no existe otro con el mismo nombre, dni o ruc.
@@ -129,23 +132,23 @@ def insert_client(name, dni, ruc):
 
 import sqlite3  # Asegúrate de importar sqlite3
 
-def insert_product(id_client, name, unit, price, igv):
+def insert_product(id_sender, name, unit, price, igv):
     """Inserta un nuevo producto en la base de datos si no existe otro con el mismo nombre para el mismo cliente"""
     try:
         conn, cursor = connect()
 
         # Verificar si el producto ya existe para el mismo cliente
-        cursor.execute("SELECT id FROM products WHERE name = ? AND id_client = ?", (name, id_client))
+        cursor.execute("SELECT id FROM products WHERE id_sender=? and name=? and unit=? and price=? and igv=?", (id_sender,name,unit,price,igv ))
         existing_product = cursor.fetchone()
 
         if existing_product:  # Si existe, devolvemos su ID
-            return f"Error: El producto '{name}' con el cliente '{id_client}' ya existe en la base de datos con ID {existing_product[0]}."
-
+            logging.DEBUG(f"Error: El producto '{name}' con el cliente '{id_sender}' ya existe en la base de datos con ID {existing_product[0]}.")
+            return
         # Insertar el nuevo producto
         cursor.execute("""
-            INSERT INTO products (id_client, name, unit, price, igv) 
+            INSERT INTO products (id_sender, name, unit, price, igv) 
             VALUES (?, ?, ?, ?, ?)
-        """, (id_client, name, unit, price, igv))
+        """, (id_sender, name, unit, price, igv))
 
         conn.commit()
         conn.close()  # Asegurar que la conexión se cierre siempre
@@ -244,7 +247,7 @@ def match_product_fuzzy(search_term):
 
     # 🔹 1️⃣ Buscar coincidencias exactas con LIKE
     query = """
-       SELECT id, name, unit, price FROM products 
+       SELECT id, name, unit, price,igv FROM products 
        WHERE LOWER(name) LIKE LOWER(?) 
        ORDER BY LENGTH(name) ASC;
     """
@@ -252,12 +255,12 @@ def match_product_fuzzy(search_term):
     exact_matches = cursor.fetchall()
 
     if exact_matches:
-        results = [(row[0], row[1], row[2], row[3], 100) for row in exact_matches]
+        results = [(row[0], row[1], row[2], row[3],row[4], 100) for row in exact_matches]
         conn.close()
         return results
 
     # 🔹 2️⃣ Obtener todos los productos disponibles en la BD
-    cursor.execute("SELECT id, name, unit, price FROM products")
+    cursor.execute("SELECT id, name, unit, price,igv FROM products")
     products = cursor.fetchall()
     product_names = [row[1] for row in products]
 
@@ -269,7 +272,7 @@ def match_product_fuzzy(search_term):
             product_names,
             scorer=fuzz.partial_ratio,
             limit=5,
-            score_cutoff=65
+            score_cutoff=70
         )
 
         for name, score, index in results:
@@ -283,7 +286,7 @@ def match_product_fuzzy(search_term):
         print(f"No se encontraron coincidencias para '{search_term}'.")
         return []
 
-    return sorted(matches_with_confidence, key=lambda x: x[4], reverse=True)
+    return sorted(matches_with_confidence, key=lambda x: x[5], reverse=True)[:3]
 
 
 def match_client_fuzzy(search_term):
