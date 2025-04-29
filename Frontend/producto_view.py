@@ -6,21 +6,20 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QGroupBox, QVBoxLayout, QCheckBox, QTableWidget, QCompleter, QHeaderView, QComboBox, \
     QTableWidgetItem, QWidget, QMessageBox, QPushButton
 
-from DataBase.database import get_products,match_product_fuzzy
 from PyQt5.QtWidgets import  QWidget, QVBoxLayout
 
+from Frontend.tools import AutComboBox
 
 class ProductView(QWidget):
     """aqui separaremos la logica de la vista de la logica de los productos"""
     def __init__(self, parent=None):
         super().__init__()
+
         self.parent = parent  # Referencia al contenedor principal
         self.data = {}
         self.productos_table = None  # Inicializar correctamente la tabla
 
         self.initUI()
-
-
     def initUI(self):
         logging.info("Inicializando ProductView...")  # 🔹 Log para ver si se ejecuta el constructor
 
@@ -58,8 +57,6 @@ class ProductView(QWidget):
         # Asegurarse de que la celda sea editable
         self.productos_table.setEditTriggers(QTableWidget.DoubleClicked | QTableWidget.SelectedClicked)
 
-        # Conectar el evento cellChanged al método de autocompletado
-        self.productos_table.cellChanged.connect(self.activar_autocompletado)
 
         productos_layout.addWidget(productos_box)  # 🔹 Agregar productos_box al layout contenedor
 
@@ -67,86 +64,26 @@ class ProductView(QWidget):
         self.productos_table.itemChanged.connect(self.recalcular_por_cambios)
 
         self.setLayout(productos_layout)  # 🔹 Asignar el layout al widget principal
-
-
-
-    def activar_autocompletado(self, row, col):
-        """Activa un QComboBox editable con fuzzy matching usando match_product_fuzzy."""
-        if col != 2:
-            return
-
-        try:
-            logging.info(f"[INFO] Activando autocompletado en fila {row}...")
-
-            # Obtener descripción actual
-            descripcion_actual = self.productos_table.item(row, 2).text() if self.productos_table.item(row, 2) else ""
-            logging.info(f"[INFO] Descripción actual: {descripcion_actual}")
-
-            sugerencias_fuzzy = match_product_fuzzy(descripcion_actual)
-            logging.info(f"[INFO] Sugerencias fuzzy: {sugerencias_fuzzy}")
-            if not sugerencias_fuzzy:
-                logging.info("[INFO] No se encontraron sugerencias fuzzy.")
-                return
-
-            abreviaturas = {
-                "KILOGRAMO": "KL",
-                "UNIDAD": "UN",
-                "CAJA": "CJ",
-                "BOLSA": "BS"
-            }
-
-            combo_box = QComboBox()
-            combo_box.setEditable(True)
-            combo_box.setMinimumWidth(235)
-            combo_box.setInsertPolicy(QComboBox.NoInsert)
-            combo_box.setFocus()
-
-            # Agregar sugerencias sin activar evento
-            for id_producto, nombre, unidad, precio,igv,_ in sugerencias_fuzzy:
-                abrev = abreviaturas.get(unidad, unidad)
-                estado_igv = "Sí" if igv == 1 else "No"
-                texto_opcion = f"{nombre} | S/ {precio:.2f} | {abrev} | {estado_igv}"
-                combo_box.addItem(texto_opcion, (nombre, precio, unidad,igv, id_producto))
-
-            combo_box.setCurrentIndex(-1)  # ⛔ No selecciones nada por defecto
-            combo_box.setEditText(descripcion_actual)  # Mantener el texto original
-
-            # 🔹 Solo ejecutar acción cuando el usuario selecciona del popup
-            def al_seleccionar(index):
-                if index >= 0:
-                    self.actualizar_producto_seleccionado(row, combo_box)
-                    self.productos_table.removeCellWidget(row, 2)
-                    nombre_seleccionado = combo_box.currentData()[0]
-                    self.productos_table.setItem(row, 2, QTableWidgetItem(nombre_seleccionado))
-
-            combo_box.currentIndexChanged.connect(al_seleccionar)
-
-            self.productos_table.setCellWidget(row, 2, combo_box)
-
-            # Mostrar popup
-            QTimer.singleShot(0, combo_box.showPopup)  # Mostrarlo en el siguiente "tick"
-
-        except Exception as e:
-            logging.error(f"[ERROR] al activar autocompletado con fuzzy: {e}")
-
-    def actualizar_producto_seleccionado(self, row, combo_box):
+    def actualizar_producto_seleccionado(self, row, datos_producto):
         """Cuando el usuario elige un producto del QComboBox, actualiza la fila con sus datos."""
 
-        datos_producto = combo_box.currentData()
         if not datos_producto:
+            print("Error: no hay datos del producto")
             return
 
-        nombre, precio, unidad, id_producto = datos_producto
+        nombre, precio, unidad, igv, id_producto = datos_producto
 
-        # 🔹 Asegurar que no haya un QComboBox previo en la celda
-        self.productos_table.removeCellWidget(row, 2)
+        combo = self.productos_table.cellWidget(row, 2)
+        if combo:
+            combo.setEditText(nombre)
 
         # 🔹 Actualizar valores en la tabla
-        self.productos_table.setItem(row, 2, QTableWidgetItem(nombre))  # Descripción
         self.productos_table.setItem(row, 1, QTableWidgetItem(unidad))  # Unidad de medida
-        self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio Base
 
-        logging.info(f" Producto seleccionado: {nombre}, ID: {id_producto}, Precio: {precio}, Unidad: {unidad}")
+        self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio Base
+        self.productos_table.setItem(row, 4, QTableWidgetItem("Sí" if igv == 1 else "No"))  # IGV
+
+        logging.info(f"Producto seleccionado: {nombre}, ID: {id_producto}, Precio: {precio}, Unidad: {unidad}")
 
         self.actualizar_resumen()
     def fill_form_fields(self, data):
@@ -160,9 +97,8 @@ class ProductView(QWidget):
 
         # Llenar tabla de productos
         productos = data
-        print("productos:",productos)
         self.productos_table.setRowCount(len(productos))
-        print("Entrando a llenar los productos")
+
 
         try:
             for row, producto in enumerate(productos):
@@ -193,8 +129,11 @@ class ProductView(QWidget):
 
                 self.productos_table.setItem(row, 0, QTableWidgetItem(str(cantidad)))  # Cantidad
                 self.productos_table.setCellWidget(row, 1, unidad_combo) # Unidad Qcombobox
-                self.productos_table.setItem(row, 2,QTableWidgetItem(producto.get("descripcion", "")))  # Descripción
-                #conectaremso el sugerencias
+
+                combo = AutComboBox(self,row=row) # creamos
+
+                combo.setEditText(producto.get("descripcion", ""))
+                self.productos_table.setCellWidget(row, 2, combo)  # Coloca el combo como widget en la celda
 
                 self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))  # Precio
                 self.productos_table.setCellWidget(row, 4, igv_combo)  # IGV con QComboBox
@@ -207,7 +146,6 @@ class ProductView(QWidget):
         except Exception as e:
             logging.error(f"Ocurrió un problema al llenar los datos en la fila {row}: {e}")
             logging.error(f" Datos del producto problemático: {producto}")
-
     def obtener_datos_producto(self):
         """Toma los valores actuales de los campos y los guarda en self.data."""
         logging.info(" Actualizando datos...")
@@ -238,13 +176,22 @@ class ProductView(QWidget):
                 total_producto = float(
                     self.productos_table.item(row, 6).text().replace("S/ ", "")) if self.productos_table.item(row,
                                                                                                               6) else 0.0
+                # Test para obtener el valor de la celda con QComboBox (AutComboBox)
+                combo_box = self.productos_table.cellWidget(row, 2)
+
+
+                if isinstance(combo_box, AutComboBox):  # Comprobar si el widget es un AutComboBox
+                    descripcion = combo_box.currentText()  # Obtener el texto seleccionado
+                    print(f"Descripción seleccionada: {descripcion}")
+                else:
+                    print("No hay AutComboBox en esta celda.")
+                    descripcion = ""  # Si no es un AutComboBox, retorna un valor vacío
 
                 producto = {
                     "cantidad": cantidad,
-                    "descripcion": self.productos_table.item(row, 2).text() if self.productos_table.item(row,
-                                                                                                         3) else "",
-                    "unidad_medida": self.productos_table.cellWidget(row, 1).currentText() if self.productos_table.cellWidget(
-                        row, 1) else "UNIDAD",
+
+                    "descripcion":descripcion,
+                    "unidad_medida": self.productos_table.cellWidget(row, 1).currentText() if self.productos_table.cellWidget(row, 1) else "UNIDAD",
                     "precio_base": precio,
                     "Igv": igv,
                     "Total IGV": total_igv,
@@ -256,6 +203,7 @@ class ProductView(QWidget):
 
             except ValueError as e:
                 logging.warning(f" Error al procesar fila {row}: {e}")
+
 
 
         self.data= productos
@@ -356,8 +304,6 @@ class ProductView(QWidget):
         if row < 0 or row >= self.productos_table.rowCount():
             logging.warning(f"[WARNING] Fila {row} fuera de rango. No se puede actualizar la unidad.")
             return
-
-
     def actualizar_resumen(self):
         """Calcula y actualiza el Total IGV y el Total Importe usando la columna 'precio_total'."""
         print("entrando a actualizar_resumen")
@@ -391,8 +337,8 @@ class ProductView(QWidget):
 
         # 🔹 Volver a conectar señales
         self.productos_table.blockSignals(False)
-
     def recalcular_por_cambios(self, item):
+        logging.info("cambios por modificaion en tabla")
 
         col_cantidad = 0
         col_precio_base = 3
@@ -409,9 +355,7 @@ class ProductView(QWidget):
             self.actualizar_cantidad(row)
         elif col == col_total:
             self.actualizar_precio_total(row)
-
         self.productos_table.blockSignals(False)  # ✅ Reactiva señales
-
     def actualizar_precio_base(self, row):
         """Si cambia el precio base, recalcula el total."""
         precio_base_item = self.productos_table.item(row, 3)
@@ -428,11 +372,9 @@ class ProductView(QWidget):
                 self.actualizar_resumen()
             except ValueError:
                 logging.warning(f"Error al actualizar precio base en fila {row}.")
-
     def actualizar_cantidad(self, row):
         """Si cambia la cantidad, recalcula el total."""
         self.actualizar_precio_base(row)  # reutilizacion de codigo
-
     def actualizar_precio_total(self, row):
         """Si cambia el precio total, recalcula el precio base manteniendo la cantidad."""
         total_item = self.productos_table.item(row, 6)
@@ -460,7 +402,6 @@ class ProductView(QWidget):
 
         except ValueError:
             logging.warning(f"Error al actualizar precio total en fila {row}.")
-
     def agregar_fila_manual(self):
         fila = self.productos_table.rowCount()
         self.productos_table.insertRow(fila)
@@ -474,8 +415,10 @@ class ProductView(QWidget):
         self.productos_table.setCellWidget(fila, 1, unidad_combo)
 
         # Descripción vacía (editable)
-        self.productos_table.setItem(fila, 2, QTableWidgetItem(""))
+        combo = AutComboBox(self, row=fila)  # Crear el AutComboBox
+        combo.setEditText("")
 
+        self.productos_table.setCellWidget(fila, 2, combo)
         # Precio base 0
         self.productos_table.setItem(fila, 3, QTableWidgetItem("S/ 0.00"))
 
@@ -490,7 +433,6 @@ class ProductView(QWidget):
         self.productos_table.setItem(fila, 6, QTableWidgetItem("S/ 0.00"))
         # Agregar botón de borrar
         self.agregar_boton_borrar(fila)
-
     def agregar_boton_borrar(self, row):
         """Agregar un botón para borrar la fila especificada."""
         # Crear el botón de borrar
@@ -522,8 +464,12 @@ class ProductView(QWidget):
 
         # Colocar el botón en la celda correspondiente (columna 7)
         self.productos_table.setCellWidget(row, 7, boton_borrar)
-
     def borrar_fila(self, row):
         """Eliminar la fila de la tabla."""
         self.productos_table.removeRow(row)
         self.actualizar_resumen()
+
+    def clean_all(self):
+        """Limpia todos los campos de la tabla de productos."""
+        self.productos_table.setRowCount(0)
+

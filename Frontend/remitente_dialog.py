@@ -2,14 +2,13 @@ import logging
 
 from PyQt5.QtWidgets import QMessageBox, QPushButton, QListWidget, QVBoxLayout, QDialog
 
-from DataBase.database import get_senders_and_id
-
-
 class RemitenteDialog(QDialog):
     """Ventana emergente para seleccionar un remitente con su ID."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None,db=None):
         super().__init__(parent)
+        self.db = db
+
         self.setWindowTitle("Seleccionar Remitente")
         self.setGeometry(100, 100, 300, 200)
 
@@ -19,7 +18,7 @@ class RemitenteDialog(QDialog):
         # Depuración: Ver si get_senders_and_id() funciona
         try:
             logging.info(" Intentando obtener remitentes...")
-            remitentes = get_senders_and_id()  # Lista de (id, nombre)
+            remitentes = self.db.get_senders_and_id()  # Lista de (id, nombre)
 
             if not remitentes:  # Si la lista está vacía
                 raise ValueError("No se encontraron remitentes en la base de datos.")

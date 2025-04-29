@@ -3,13 +3,13 @@ import logging
 
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QGroupBox, QMessageBox
 
-from DataBase.database import get_next_invoice_number
 
 
 class ResumenView(QWidget):
-    def __init__(self):
+    def __init__(self,db=None):
         super().__init__()
         self.initUI()
+        self.db = db
 
         self.data = {}
         self.serie=""
@@ -60,7 +60,7 @@ class ResumenView(QWidget):
             id_sender=0
 
 
-        num_documento = get_next_invoice_number(id_sender)
+        num_documento = self.db.get_next_invoice_number(id_sender)
         if num_documento is None:
             logging.error(f" No se pudo obtener el número de documento para el remitente {id_sender}")
             QMessageBox.critical(self, f"Error", f"No se pudo obtener el número de documento {id_sender}")
@@ -91,6 +91,15 @@ class ResumenView(QWidget):
             "igv_total": self.igv_total,
             "total": self.total
         }
+
+    def clean_all(self):
+        """Limpia todos los campos del formulario."""
+        self.serie_label.setText("Serie: B00-00")
+        self.numero_label.setText("Número: 00")
+        self.igv_label.setText("Total IGV: S/ 0.00")
+        self.total_label.setText("Total importe: S/ 0.00")
+
+
 
 
 

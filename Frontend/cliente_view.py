@@ -1,11 +1,10 @@
-import json
+
 import logging
 
-from PyQt5.QtCore import QDate, Qt
-from PyQt5.QtGui import QIntValidator, QDoubleValidator
-from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit, QDateEdit, QLabel, QCheckBox, QWidget, QVBoxLayout
+from PyQt5.QtCore import QDate
+from PyQt5.QtGui import QIntValidator
+from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit, QDateEdit, QLabel, QWidget, QVBoxLayout
 
-from DataBase.database import match_client_fuzzy
 
 
 class ClienteView(QWidget):
@@ -19,17 +18,21 @@ class ClienteView(QWidget):
         self.nombre_entry = None
         self.ruc_cliente = None
         self.fecha_entry = None
-
-        self.ver_sugerencia = None
-        self.nombre_anterior = None
-        self.dni_anterior = None
-        self.ruc_anterior = None
-        self.id_cliente_sugerido = None
-        self.tipo_documento_combo = None
+        self.id_cliente_sugerido= None
 
         self.initUI()
 
         self.data = {}
+    def validate(self):
+        """Valida los campos del formulario de cliente."""
+        print(f"Nombre: {self.parent.tipo_documento_combo.currentText()}")
+        if self.parent.tipo_documento_combo.currentText() == "Factura":
+            if not self.ruc_cliente.text().strip():
+                return False, "El RUC es obligatorio para Factura."
+        if self.parent.tipo_documento_combo.currentText() == "Boleta":
+            if not self.num_doc_entry.text().strip():
+                return False, "El DNI es obligatorio para Factura."
+        return True, ""
 
     def initUI(self):
         # Grupo visual de cliente
@@ -41,7 +44,6 @@ class ClienteView(QWidget):
         self.nombre_entry = QLineEdit()
         self.ruc_cliente = QLineEdit()
         self.fecha_entry = QDateEdit()
-        self.ver_sugerencia = QCheckBox("Ver sugerencia")
 
         # Configuración de campos
         self.ruc_cliente.textChanged.connect(self.actualizar_tipo_documento)
@@ -58,7 +60,6 @@ class ClienteView(QWidget):
         cliente_layout.addWidget(QLabel("Nombre"), 0, 3)
         cliente_layout.addWidget(self.nombre_entry, 0, 4)
 
-        cliente_layout.addWidget(self.ver_sugerencia, 0, 5)
 
         cliente_layout.addWidget(QLabel("RUC"), 1, 0)
         cliente_layout.addWidget(self.ruc_cliente, 1, 1, 1, 2)
@@ -79,34 +80,9 @@ class ClienteView(QWidget):
 
         if self.ruc_cliente.text().strip():  # Si hay un RUC ingresado
             self.parent.tipo_documento_combo.setCurrentText("Factura")
-
         else:
             self.parent.tipo_documento_combo.setCurrentText("Boleta")
 
-    def toggle_sugerencias(self, state):
-        if state == Qt.Checked:
-            self.nombre_anterior = self.nombre_entry.text()
-            self.dni_anterior = self.num_doc_entry.text()
-            self.ruc_anterior = self.ruc_cliente.text()
-
-            cliente = self.nombre_entry.text()
-            try:
-                result = match_client_fuzzy(cliente)[0]
-                print(result)
-
-                self.id_cliente_sugerido = result[0]
-
-                self.nombre_entry.setText(result[1])
-                self.num_doc_entry.setText(result[2])
-                self.ruc_cliente.setText(result[3])
-
-
-                # ✅ Actualizar `BoletaApp`
-                if self.parent:
-                    self.parent.id_cliente_sugerido = self.id_cliente_sugerido
-
-            except Exception as e:
-                print(f"Error al buscar sugerencias: {e}")
 
     def fill_form_client(self, cliente_data):
         try:
@@ -128,3 +104,10 @@ class ClienteView(QWidget):
         self.data["fecha"] = self.fecha_entry.date().toString("dd/MM/yyyy")  # ✅ Formato correcto
 
         return self.data
+
+    def clean_all(self):
+        """Limpia todos los campos del formulario."""
+        self.num_doc_entry.clear()
+        self.nombre_entry.clear()
+        self.ruc_cliente.clear()
+        self.fecha_entry.setDate(QDate.currentDate())

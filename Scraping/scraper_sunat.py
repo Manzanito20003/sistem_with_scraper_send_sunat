@@ -16,10 +16,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 
 
-from DataBase.database import get_sender_by_id
+from DataBase.DatabaseManager import DatabaseManager
 
 
-
+db=DatabaseManager()
 
 import logging
 
@@ -37,10 +37,9 @@ def slow_typing(element, text, delay=0.1):
 
 def get_client(id):
     """Obtiene los datos del cliente desde DB"""
-    sender=get_sender_by_id(id)
+    sender=db.get_sender_by_id(id)
 
     print("sende:",sender)
-    print(get_sender_by_id(id))
     if sender:
         ruc=sender[2]
         user=sender[3]
@@ -80,7 +79,6 @@ def agregar_producto(driver, producto,tipo_documento):
             boton_adicionar = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "factura.addItemButton_label"))
             )
-
         boton_adicionar.click()
 
         # Seleccionar tipo de ítem
@@ -146,7 +144,6 @@ def configurar_driver(headless=True):
     """Configurar el WebDriver de Chrome con las opciones adecuadas."""
     load_dotenv()
 
-
     chrome_driver_path = ChromeDriverManager().install()
     service = Service(executable_path=chrome_driver_path)
 
@@ -201,34 +198,20 @@ def iniciar_sesion(driver,sender_id=1):
         print("No se encontraron los elementos de inicio de sesión")
 
 
-# Función para emitir boleta
-# def dowload_send():
 
-#
-# # Clic en el botón "Continuar"
-#
-# boton_continuar = WebDriverWait(driver, 20).until(
-#     EC.element_to_be_clickable((By.ID, "boleta.botonGrabarDocumento_label"))
-# )
-# boton_continuar.click()
-#
-# boton_continuar = WebDriverWait(driver, 20).until(
-#     EC.element_to_be_clickable((By.ID, "docsrel.botonGrabarDocumento_label")))
-#
-# boton_continuar.click()  # Hacer clic en el botón
-#
-# print("Boleta emitida con éxito")
 
 def emitir_boleta(driver,data):
     """Función para emitir una boleta a través de la interfaz web."""
     try:
+        print("data:",data)
         data_cliente = data["cliente"]
 
         #datos de cliente
         fecha=data_cliente["fecha"]
-        cliente=data_cliente["cliente"]
+        cliente=data_cliente["nombre"]
         dni=data_cliente["dni"]
 
+        print("paso la extraccion de datos")
         # Buscar "BOLETA" en el campo de búsqueda
         campo_busqueda = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "txtBusca")))
         campo_busqueda.send_keys("BOLETA")
@@ -260,10 +243,11 @@ def emitir_boleta(driver,data):
             #sacar el foco
             input_nro_dni.send_keys(Keys.TAB)
 
-            input_razon_social=WebDriverWait(driver, 20).until(
+            WebDriverWait(driver, 20).until(
                 lambda d: d.find_element(By.ID, "inicio.razonSocial").get_attribute("value").strip() != ""
             )
-            razon_social = input_razon_social.get_attribute("value")
+
+            razon_social = driver.find_element(By.ID, "inicio.razonSocial").get_attribute("value")
 
             print(f"Razón Social detectada: {razon_social}")
 
@@ -544,9 +528,9 @@ def validate_importe_all(driver, total):
 
 # Ejecutar el de prueba
 if __name__ == "__main__":
-    json_file_path = '../DataBase/response.json'
-    # Abrir y cargar el contenido del archivo JSON
-    data = []
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-        send_billing_sunat(data,sender_id=2)
+
+    data = {'cliente': {'nombre': 'TONFAY COMPANY', 'dni': '75276980', 'ruc': '', 'fecha': '23/04/2025'}, 'productos': [{'cantidad': 2.0, 'descripcion': '', 'unidad_medida': 'KILOGRAMO', 'precio_base': 32.0, 'Igv': 0, 'Total IGV': 0.0, 'precio_total': 64.0}, {'cantidad': 1.0, 'descripcion': '', 'unidad_medida': 'KILOGRAMO', 'precio_base': 36.0, 'Igv': 0, 'Total IGV': 0.0, 'precio_total': 36.0}], 'resumen': {'serie': 'B05-18', 'numero': '18', 'igv_total': 0.0, 'total': 100.0}, 'id_cliente': None, 'id_remitente': 5, 'tipo_documento': 'Boleta'}
+
+
+
+    send_billing_sunat(data,sender_id=2)

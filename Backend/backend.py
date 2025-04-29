@@ -5,14 +5,6 @@ from PIL import Image, ImageTk
 # Ruta al archivo JSON
 JSON_FILE_PATH = '../DataBase/response.json'
 
-def load_json():
-    """Carga los datos desde el archivo JSON."""
-    try:
-        with open(JSON_FILE_PATH, 'r', encoding="utf-8") as file:
-            return json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error al cargar el JSON: {e}")
-        return {}
 
 def save_json(data):
     """Guarda los datos en el archivo JSON."""
@@ -57,5 +49,6 @@ def process_product_data(product):
         'importe_de_item': float(product.get('importe_de_item', 0)),
         'Igv': 1 if product.get('Igv', 0) == "Sí" else 0
     }
+
 
 

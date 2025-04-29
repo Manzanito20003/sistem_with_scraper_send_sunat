@@ -6,10 +6,9 @@ from PyQt5.QtWidgets import ( QWidget, QLabel, QPushButton, QVBoxLayout,
 from PyQt5.QtGui import QPixmap
 
 from Backend.img_to_json import process_image_to_json
+from DataBase.DatabaseManager import DatabaseManager
 
 # DB
-from DataBase.database import insert_client, insert_product, insert_invoice, get_next_invoice_number, get_products
-from DataBase.database import match_client_fuzzy
 from Frontend.cliente_view import ClienteView
 from Frontend.producto_view import ProductView
 from Frontend.remitente_dialog import RemitenteDialog
@@ -18,7 +17,7 @@ from Frontend.resumen_view import ResumenView
 from Scraping.scraper_sunat import send_billing_sunat
 
 
-from PyQt5.QtWidgets import QComboBox, QTableWidgetItem, QCompleter
+from PyQt5.QtWidgets import QComboBox
 from PyQt5.QtCore import Qt
 
 #log
@@ -43,81 +42,36 @@ class BoletaWorker(QThread):
     finished = pyqtSignal()           # Señal cuando termina con éxito
     error = pyqtSignal(str)           # Señal si hay un error (con mensaje)
 
-    def __init__(self, data_boleta):
+    def __init__(self, boleta_data):
         super().__init__()
-        self.data_boleta = data_boleta
+        self.boleta_data = boleta_data
 
     def run(self):  # Esta función en segundo plano para enviar la boleta
         try:
-            enviar_boleta(self.data_boleta)
+            self.db.enviar_boleta(self.boleta_data)
             self.finished.emit()             # Señal de éxito
         except Exception as e:
             self.error.emit(str(e))          # Señal de error
 
+class Procces_imgWorker(QThread):
+    finished = pyqtSignal()           # Señal cuando termina con éxito
+    error = pyqtSignal(str)           # Señal si hay un error (con mensaje)
+    data_signal = pyqtSignal(dict)          # Señal para enviar los datos procesados
+    def __init__(self, boleta_data):
+        super().__init__()
+        self.boleta_data = boleta_data
 
-def enviar_boleta(data):
-    """Guarda los datos de la boleta en la base de datos y la envía a SUNAT."""
+    def run(self):  # Esta función en segundo plano para enviar la boleta
+        try:
+            data =process_image_to_json(self.boleta_data)
+            if isinstance(data, str):
+                data = json.loads(data)  # Asegura que sea dict
 
-    id_client=data["id_cliente"]
-    id_sender=data["id_remitente"]
-    logging.info("Iniciando proceso de emisión de boleta...")
-    print("tuype:",type(data))
-
-
-
-    logging.info(f"ID del remitente seleccionado: {id_sender}")
-
-    if id_client is None:
-        cliente=data["cliente"]
-        id_client = insert_client(
-            cliente["nombre"],
-            cliente["dni"] if cliente["dni"]  else None,
-            cliente["ruc"] if cliente["ruc"]  else None
-        )
-
-
-        logging.info(f" Cliente registrado con ID: {id_client}")
-
-    if id_client is None or id_sender is None:
-        logging.error("No se pudo continuar. ID Cliente o ID Sender es None.")
-        return
-
-    # 🔹 Cálculo del total de la boleta
-    total_pagado = data.get("total", 0)
-    igv_total=data.get("igv_total",0)
-    logging.info(f"Total Boleta: S/ {total_pagado:.2f}, Total IGV: S/ {igv_total:.2f}")
-
-    # 🔹 Insertar productos en la BD
-    try:
-        for producto in data['productos']:
-            print("producto",producto)
-            print("descripcion",producto.get("descripcion"))
-            insert_product(
-                id_sender,
-                producto.get("descripcion"),
-                producto.get("unidad_medida"),
-                producto.get("precio_base"),
-                producto.get("Igv")
-            )
-
-
-        # 🔹 Insertar la boleta en la BD
-        insert_invoice(id_client, id_sender, total_pagado, igv_total)
-        logging.info(f"Boleta registrada correctamente en BD. (Cliente ID: {id_client}, Remitente ID: {id_sender})")
-
-    except Exception as e:
-        logging.error(f"No se pudo completar la inserción de productos o la boleta. Detalle: {e}")
-        return
-
-    # 🔹 Enviar a SUNAT (Simulación)
-    try:
-        send_billing_sunat(data, id_sender)
-        logging.info("Boleta enviada a SUNAT correctamente.")
-    except Exception as e:
-        logging.error(f"Fallo en la emisión ante SUNAT. Detalle: {e}")
-
-
-
+            self.data_signal.emit(data)  # Emitir la señal con los datos procesados
+            self.finished.emit()
+            # Señal de éxito
+        except Exception as e:
+            self.error.emit(str(e))          # Señal de error
 
 
 
@@ -125,9 +79,11 @@ def enviar_boleta(data):
 class BoletaApp(QWidget):
     def __init__(self):
         super().__init__()
+        self.db = DatabaseManager() # mi conexion :)
+
         self.selected_remitente_id = None
         self.tipo_documento_combo= None
-        self.product_view = ProductView(self)  # ✅ Pasamos `self` como `parent`
+        self.product_view = ProductView(self,)  # ✅ Pasamos `self` como `parent`
         self.cliente_view = ClienteView(self,self.tipo_documento_combo)
         self.resumen_view = ResumenView()
         self.initUI()
@@ -135,8 +91,8 @@ class BoletaApp(QWidget):
         self.actualizar_tipo_documento= None
 
     def subir_imagen(self):
+        """aqui se sube la imagen y se procesa con AI """
         logging.info(" Iniciando función subir_imagen...")
-
         try:
             # Selección de archivo
             file_path, _ = QFileDialog.getOpenFileName()
@@ -147,34 +103,34 @@ class BoletaApp(QWidget):
                 return
 
             # Procesar imagen
-            data = process_image_to_json(file_path)
+            self.worker=Procces_imgWorker(file_path)
+            self.worker.finished.connect(lambda msg:logging.info("img cargado correctamente"))
+            self.worker.error.connect(
+                lambda msg: QMessageBox.critical(self, "Error", f"Ocurrió un error al cargar la img:\n{msg}"))
+            self.worker.data_signal.connect(self.cargar_datos_img)  # Conectamos la señal directamente
 
-            # Convertir JSON a diccionario
-            data = json.loads(data)
-
-
-
-            # Extraer y registrar contenido
-            cliente_data = data["cliente"]
-            product_data = data["productos"]
-
+            self.worker.start()
 
             # Mostrar imagen (si lo deseas)
             self.display_image(file_path)
 
-            self.cliente_view.fill_form_client(cliente_data)
-
-            self.product_view.fill_form_fields(product_data)
 
             logging.info("Imagen procesada y datos cargados correctamente.")
-
-        except json.JSONDecodeError as e:
-            logging.error(f" Error al decodificar el JSON: {e}")
-            QMessageBox.critical(self, "Error", f"El archivo no contiene un JSON válido.\n{e}")
 
         except Exception as e:
             logging.error(f"Error inesperado al procesar la imagen: {e}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Ocurrió un error inesperado:\n{e}")
+    def cargar_datos_img(self, data):
+        # Extraer y registrar contenido
+        cliente_data = data["cliente"]
+        product_data = data["productos"]
+
+
+
+        self.cliente_view.fill_form_client(cliente_data)
+
+        self.product_view.fill_form_fields(product_data)
+
     def initUI(self):
         main_layout = QHBoxLayout()
 
@@ -198,6 +154,14 @@ class BoletaApp(QWidget):
 
         remitente_layout = QVBoxLayout()
 
+        # Botón de Borrar Todo
+        self.borrar_button = QPushButton("Borrar Todo", self)
+        self.borrar_button.setStyleSheet(
+            "background-color: red; color: white; font-size: 12px; padding: 12px; border-radius: 5px; size: 5px;")
+        self.borrar_button.clicked.connect(self.clean_all)  # Conectamos la función de borrar todo
+
+
+        left_frame.addWidget(self.borrar_button)  # Agregar el botón al layout izquierdo
         # 🔹 Agregar ComboBox para seleccionar el tipo de documento
         tipo_label = QLabel("Tipo de documento:")
         self.tipo_documento_combo = QComboBox()
@@ -256,99 +220,59 @@ class BoletaApp(QWidget):
     def cargar_productos(self):
         """Carga todos los productos desde la base de datos al iniciar la app."""
         try:
-            self.productos_disponibles = get_products()  # Lista de tuplas (id, nombre, unidad, precio)
+            self.productos_disponibles = self.db.get_products()  # Lista de tuplas (id, nombre, unidad, precio)
             logging.info(f"Se cargaron {len(self.productos_disponibles)} productos en memoria.")
         except Exception as e:
             logging.error(f"[ERROR] No se pudieron cargar los productos: {e}")
             self.productos_disponibles = []
+            QMessageBox.critical(self, "Error", f"No se pudieron cargar los productos: {e}")
 
-    def toggle_sugerencias(self, state):
-        """Muestra o esconde sugerencias cuando se activa/desactiva el checkbox."""
-        if state == Qt.Checked:
-            # 🔹 Guardar el estado actual antes de cambiarlo
-            self.nombre_anterior = self.nombre_entry.text()
-            self.dni_anterior = self.num_doc_entry.text()
-            self.ruc_anterior = self.ruc_cliente.text()
-            self.direccion_anterior = self.direccion_entry.text()
-
-            # 🔹 Obtener sugerencia basada en el nombre ingresado
-            cliente = self.nombre_entry.text()
-            try:
-                result= match_client_fuzzy(cliente)[0]
-                print(result)
-                self.id_cliente_sugerido = result[0]  # Guardar el ID del cliente sugerido
-
-                name=result[1]
-                dni=result[2]
-                ruc=result[3]
-                confidence=result[4]
-
-
-            except Exception as e:
-                print(f"Error al buscar sugerencias: {e}")
-                return
-            # 🔹 Cargar datos sugeridos en el formulario
-            self.nombre_entry.setText(name)
-            self.num_doc_entry.setText(dni)
-            self.ruc_cliente.setText(ruc)
-            self.direccion_entry.setText("")  # O puedes sugerir una dirección si está disponible
-
-            # 🔹 Mostrar confianza en el QLabel
-            self.cliente_nuevo.setText(f"Coincidencia:{confidence:.2f}%")
-            logging.info(" Checkbox activado: Mostrando sugerencias...")
-
-        else:
-            # 🔹 Restaurar valores originales
-            self.nombre_entry.setText(self.nombre_anterior)
-            self.num_doc_entry.setText(self.dni_anterior)
-            self.ruc_cliente.setText(self.ruc_anterior)
-            self.direccion_entry.setText(self.direccion_anterior)
-
-            self.id_cliente_sugerido = None  # Resetear ID si se desactiva la sugerencia
-
-            self.cliente_nuevo.setText("Coincidencia: 0.00%")
-
-            logging.info(" Checkbox desactivado: Restaurando valores originales...")
 
     def procesar_boleta(self):
+        """Aqui procesamos la boleta y la enviamos a la base de datos y a sunat"""
         logging.info("Procesando boleta...")
 
         if self.selected_remitente_id is None:
-            print("[❌ ERROR] No se ha seleccionado un remitente.")
             QMessageBox.warning(self, "Error", "Debe seleccionar un remitente antes de emitir la boleta.")
+            return
+        validate_cliente,result=self.cliente_view.validate()
+        if validate_cliente==False:
+            logging.warning("Los datos del cliente no son válidos.")
+            QMessageBox.warning(self, "Error", result)
             return
 
         data_cliente=self.cliente_view.obtener_datos_cliente()
         data_producto=self.product_view.obtener_datos_producto()
         data_resumen=self.resumen_view.obtener_datos_resumen()
 
-        data_boleta={
+        boleta_data={
             "cliente":data_cliente,
             "productos":data_producto,
             "resumen":data_resumen
         }
 
-        logging.info(f"Datos actualizados de boleta: {data_boleta}")
+        logging.info(f"Datos actualizados de boleta: {boleta_data}")
 
-        if not data_boleta or 'productos' not in data_boleta or len(data_boleta['productos']) == 0:
-            logging.error("No hay productos en la boleta. No se puede continuar.")
+        if not boleta_data or 'productos' not in boleta_data or len(boleta_data['productos']) == 0:
+            logging.error("No hay productos en la boleta."
+                          " No se puede continuar.")
             QMessageBox.warning(self, "Error", "Debe agregar al menos un producto antes de emitir la boleta.")
             return
 
         id_cliente = self.cliente_view.id_cliente_sugerido  # ✅ Obtener desde cliente_view
 
         tipo_documento = self.tipo_documento_combo.currentText()
-        data_boleta["id_cliente"]=id_cliente
-        data_boleta["id_remitente"]=self.selected_remitente_id
-        data_boleta["tipo_documento"] = tipo_documento
+        boleta_data["id_cliente"]=id_cliente
+        boleta_data["id_remitente"]=self.selected_remitente_id
+        boleta_data["tipo_documento"] = tipo_documento
 
         logging.info(f"Enviando {tipo_documento} con los siguientes datos:\n"
                      f"Cliente ID: {id_cliente}\n"
                      f"Remitente ID: {self.selected_remitente_id}\n"
-                     f"Total: S/ {data_boleta.get('total', 0):.2f}")
+                     f"Total: S/ {boleta_data.get('total', 0):.2f}")
 
         try:
-            self.worker = BoletaWorker(data_boleta)
+            self.worker = BoletaWorker(boleta_data)
             self.worker.finished.connect(lambda: QMessageBox.information(self, "Éxito", "La boleta fue emitida correctamente."))
             self.worker.error.connect(lambda msg: QMessageBox.critical(self, "Error", f"Ocurrió un error al emitir la boleta:\n{msg}"))
 
@@ -369,8 +293,7 @@ class BoletaApp(QWidget):
 
     def abrir_seleccion_remitente(self):
         logging.info(" Abriendo selector de remitente...")
-        dialog = RemitenteDialog(self)
-
+        dialog = RemitenteDialog(self,self.db)
         if dialog.exec_() == QDialog.Accepted:
             logging.info(" Remitente seleccionado correctamente.")
 
@@ -391,3 +314,66 @@ class BoletaApp(QWidget):
                 QMessageBox.warning(self, "Error", "No se pudo obtener el remitente seleccionado.")
         else:
             logging.warning(" El selector de remitente se cerró sin seleccionar.")
+
+    def clean_all(self):
+        """Limpia todos los campos de la interfaz."""
+        self.cliente_view.clean_all()
+        self.product_view.clean_all()
+        self.resumen_view.clean_all()
+        self.img_label.clear()
+        self.selected_remitente_id = None
+
+        # activamos el boton solo de enviar
+        self.enviar_button.setEnabled(True)
+
+    def closeEvent(self, event):
+        self.db.close()  # Cerra la conexión
+        event.accept()
+
+    def enviar_boleta(self,data):
+        """Guarda los datos de la boleta en la base de datos y la envía a SUNAT."""
+
+        id_client = data["id_cliente"]
+        id_sender = data["id_remitente"]
+
+        logging.info("Iniciando proceso de emisión de boleta...")
+        logging.info(f"ID del remitente seleccionado: {id_sender}")
+
+        try:
+            send_billing_sunat(data, id_sender)
+            logging.info("Boleta enviada a SUNAT correctamente.")
+        except Exception as e:
+            logging.error(f"Fallo en la emisión ante SUNAT. Detalle: {e}")
+
+        if id_client is None:
+            cliente = data["cliente"]
+            id_client = self.db.insert_client(
+                cliente["nombre"],
+                cliente["dni"] if cliente["dni"] else None,
+                cliente["ruc"] if cliente["ruc"] else None
+            )
+            logging.info(f" Cliente registrado con ID: {id_client}")
+        if id_client is None or id_sender is None:
+            logging.error("No se pudo continuar. ID Cliente o ID Sender es None.")
+            return
+
+        # 🔹 Cálculo del total de la boleta
+        total_pagado = data.get("total", 0)
+        igv_total = data.get("igv_total", 0)
+        logging.info(f"Total Boleta: S/ {total_pagado:.2f}, Total IGV: S/ {igv_total:.2f}")
+
+        # 🔹 Insertar productos en la BD
+        try:
+            for producto in data['productos']:
+                self.db.insert_product(
+                    id_sender,
+                    producto.get("descripcion"),
+                    producto.get("unidad_medida"),
+                    producto.get("precio_base"),
+                    producto.get("Igv")
+                )
+            self.db.insert_invoice(id_client, id_sender, total_pagado, igv_total)
+            logging.info(f"Boleta registrada correctamente en BD. (Cliente ID: {id_client}, Remitente ID: {id_sender})")
+        except Exception as e:
+            logging.error(f"No se pudo completar la inserción de productos o la boleta. Detalle: {e}")
+            return
