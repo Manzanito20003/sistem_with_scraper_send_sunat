@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import ( QWidget, QLabel, QPushButton, QVBoxLayout,
                               QDialog, QMessageBox)
 from PyQt5.QtGui import QPixmap
 
+from Backend.BoletaController import BoletaController
 from Backend.img_to_json import process_image_to_json
 from DataBase.DatabaseManager import DatabaseManager
 
@@ -13,9 +14,6 @@ from Frontend.cliente_view import ClienteView
 from Frontend.producto_view import ProductView
 from Frontend.remitente_dialog import RemitenteDialog
 from Frontend.resumen_view import ResumenView
-#scrapping
-from Scraping.scraper_sunat import send_billing_sunat
-
 
 from PyQt5.QtWidgets import QComboBox
 from PyQt5.QtCore import Qt
@@ -34,24 +32,8 @@ logging.basicConfig(
 
     ]
 )
-
-
 from PyQt5.QtCore import QThread, pyqtSignal
 
-class BoletaWorker(QThread):
-    finished = pyqtSignal()           # Señal cuando termina con éxito
-    error = pyqtSignal(str)           # Señal si hay un error (con mensaje)
-
-    def __init__(self, boleta_data):
-        super().__init__()
-        self.boleta_data = boleta_data
-
-    def run(self):  # Esta función en segundo plano para enviar la boleta
-        try:
-            self.db.enviar_boleta(self.boleta_data)
-            self.finished.emit()             # Señal de éxito
-        except Exception as e:
-            self.error.emit(str(e))          # Señal de error
 
 class Procces_imgWorker(QThread):
     finished = pyqtSignal()           # Señal cuando termina con éxito
@@ -80,6 +62,7 @@ class BoletaApp(QWidget):
     def __init__(self):
         super().__init__()
         self.db = DatabaseManager() # mi conexion :)
+        self.controller = BoletaController(self.db)
 
         self.selected_remitente_id = None
         self.tipo_documento_combo= None
@@ -102,15 +85,9 @@ class BoletaApp(QWidget):
                 QMessageBox.critical("Fallo la eleccion de img.")
                 return
 
-            # Procesar imagen
-            self.worker=Procces_imgWorker(file_path)
-            self.worker.finished.connect(lambda msg:logging.info("img cargado correctamente"))
-            self.worker.error.connect(
-                lambda msg: QMessageBox.critical(self, "Error", f"Ocurrió un error al cargar la img:\n{msg}"))
-            self.worker.data_signal.connect(self.cargar_datos_img)  # Conectamos la señal directamente
-
-            self.worker.start()
-
+            data= process_image_to_json(file_path)  # Procesar la imagen
+            data = json.loads(data)
+            self.cargar_datos_img(data)  # Cargar los datos en la vista
             # Mostrar imagen (si lo deseas)
             self.display_image(file_path)
 
@@ -122,10 +99,9 @@ class BoletaApp(QWidget):
             QMessageBox.critical(self, "Error", f"Ocurrió un error inesperado:\n{e}")
     def cargar_datos_img(self, data):
         # Extraer y registrar contenido
+
         cliente_data = data["cliente"]
         product_data = data["productos"]
-
-
 
         self.cliente_view.fill_form_client(cliente_data)
 
@@ -227,65 +203,27 @@ class BoletaApp(QWidget):
             self.productos_disponibles = []
             QMessageBox.critical(self, "Error", f"No se pudieron cargar los productos: {e}")
 
-
     def procesar_boleta(self):
-        """Aqui procesamos la boleta y la enviamos a la base de datos y a sunat"""
+        """Prepara los datos de la boleta y delega la emisión al Controller."""
         logging.info("Procesando boleta...")
-
-        if self.selected_remitente_id is None:
-            QMessageBox.warning(self, "Error", "Debe seleccionar un remitente antes de emitir la boleta.")
-            return
-        validate_cliente,result=self.cliente_view.validate()
-        if validate_cliente==False:
-            logging.warning("Los datos del cliente no son válidos.")
-            QMessageBox.warning(self, "Error", result)
+        # Validaciones + armado + emisión + manejo de errores
+        if not self.controller.validar_envio(self.selected_remitente_id, self.cliente_view):
             return
 
-        data_cliente=self.cliente_view.obtener_datos_cliente()
-        data_producto=self.product_view.obtener_datos_producto()
-        data_resumen=self.resumen_view.obtener_datos_resumen()
-
-        boleta_data={
-            "cliente":data_cliente,
-            "productos":data_producto,
-            "resumen":data_resumen
-        }
+        boleta_data = self.controller.armar_boleta_data(
+            self.cliente_view, self.product_view, self.resumen_view,
+            self.selected_remitente_id,
+            self.tipo_documento_combo.currentText()
+        )
 
         logging.info(f"Datos actualizados de boleta: {boleta_data}")
 
-        if not boleta_data or 'productos' not in boleta_data or len(boleta_data['productos']) == 0:
-            logging.error("No hay productos en la boleta."
-                          " No se puede continuar.")
-            QMessageBox.warning(self, "Error", "Debe agregar al menos un producto antes de emitir la boleta.")
-            return
-
-        id_cliente = self.cliente_view.id_cliente_sugerido  # ✅ Obtener desde cliente_view
-
-        tipo_documento = self.tipo_documento_combo.currentText()
-        boleta_data["id_cliente"]=id_cliente
-        boleta_data["id_remitente"]=self.selected_remitente_id
-        boleta_data["tipo_documento"] = tipo_documento
-
-        logging.info(f"Enviando {tipo_documento} con los siguientes datos:\n"
-                     f"Cliente ID: {id_cliente}\n"
-                     f"Remitente ID: {self.selected_remitente_id}\n"
-                     f"Total: S/ {boleta_data.get('total', 0):.2f}")
-
         try:
-            self.worker = BoletaWorker(boleta_data)
-            self.worker.finished.connect(lambda: QMessageBox.information(self, "Éxito", "La boleta fue emitida correctamente."))
-            self.worker.error.connect(lambda msg: QMessageBox.critical(self, "Error", f"Ocurrió un error al emitir la boleta:\n{msg}"))
-
-            self.enviar_button.setEnabled(False)  # Opcional: desactivar botón mientras trabaja
-
-            self.worker.start()
-
-
-
+            self.controller.emitir_boleta(boleta_data)
+            self.enviar_button.setEnabled(False)
         except Exception as e:
-            logging.error(f"Ocurrió un error al procesar la boleta: {e}")
-            QMessageBox.critical(self, "Error", f"Ocurrió un error al emitir la boleta:\n{e}")
-
+            logging.error(f"Error en emisión: {e}", exc_info=True)
+            QMessageBox.critical(self, "Error", f"No se pudo emitir:\n{e}")
     def display_image(self, file_path):
         """Muestra la imagen seleccionada en la interfaz."""
         pixmap = QPixmap(file_path).scaled(300, 300, Qt.KeepAspectRatio)
@@ -304,9 +242,6 @@ class BoletaApp(QWidget):
                 logging.info(f" Nombre Remitente: {self.selected_remitente}, ID: {self.selected_remitente_id}")
 
                 self.remitente_label.setText(f"Remitente: {self.selected_remitente}")
-
-
-                # 🔹 Actualizar la serie y número de boleta
 
                 self.resumen_view.actualizar_serie_y_numero(self.selected_remitente_id, self.tipo_documento_combo.currentText())
             else:
@@ -330,50 +265,4 @@ class BoletaApp(QWidget):
         self.db.close()  # Cerra la conexión
         event.accept()
 
-    def enviar_boleta(self,data):
-        """Guarda los datos de la boleta en la base de datos y la envía a SUNAT."""
 
-        id_client = data["id_cliente"]
-        id_sender = data["id_remitente"]
-
-        logging.info("Iniciando proceso de emisión de boleta...")
-        logging.info(f"ID del remitente seleccionado: {id_sender}")
-
-        try:
-            send_billing_sunat(data, id_sender)
-            logging.info("Boleta enviada a SUNAT correctamente.")
-        except Exception as e:
-            logging.error(f"Fallo en la emisión ante SUNAT. Detalle: {e}")
-
-        if id_client is None:
-            cliente = data["cliente"]
-            id_client = self.db.insert_client(
-                cliente["nombre"],
-                cliente["dni"] if cliente["dni"] else None,
-                cliente["ruc"] if cliente["ruc"] else None
-            )
-            logging.info(f" Cliente registrado con ID: {id_client}")
-        if id_client is None or id_sender is None:
-            logging.error("No se pudo continuar. ID Cliente o ID Sender es None.")
-            return
-
-        # 🔹 Cálculo del total de la boleta
-        total_pagado = data.get("total", 0)
-        igv_total = data.get("igv_total", 0)
-        logging.info(f"Total Boleta: S/ {total_pagado:.2f}, Total IGV: S/ {igv_total:.2f}")
-
-        # 🔹 Insertar productos en la BD
-        try:
-            for producto in data['productos']:
-                self.db.insert_product(
-                    id_sender,
-                    producto.get("descripcion"),
-                    producto.get("unidad_medida"),
-                    producto.get("precio_base"),
-                    producto.get("Igv")
-                )
-            self.db.insert_invoice(id_client, id_sender, total_pagado, igv_total)
-            logging.info(f"Boleta registrada correctamente en BD. (Cliente ID: {id_client}, Remitente ID: {id_sender})")
-        except Exception as e:
-            logging.error(f"No se pudo completar la inserción de productos o la boleta. Detalle: {e}")
-            return

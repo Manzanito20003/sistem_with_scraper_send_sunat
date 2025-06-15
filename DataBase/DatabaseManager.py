@@ -2,6 +2,7 @@
 
 import sqlite3
 import os
+import difflib
 
 class DatabaseManager:
     # Encapsulamiento de la base de datos
@@ -236,3 +237,12 @@ class DatabaseManager:
             WHERE id = ?
         """, (id_sender, name, unit, price, igv, id_product))
         self.conn.commit()
+
+    def match_product_fuzzy(self, text):
+        """Busca productos cuyo nombre sea similar al texto ingresado (fuzzy search)."""
+        self.cursor.execute("SELECT name FROM products")
+        product_names = [row[0] for row in self.cursor.fetchall()]
+
+        # Buscar los más parecidos
+        matches = difflib.get_close_matches(text, product_names, n=5, cutoff=0.6)
+        return matches

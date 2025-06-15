@@ -8,10 +8,13 @@ from DataBase.DatabaseManager import DatabaseManager  # asegúrate de que esta f
 
 class AutComboBox(QComboBox):
 
+
+
     def __init__(self, parent=None, row=None):
         # name_combo es el nombre por defecto (no usado aún)
         super().__init__(parent)
         self.parent_widget = parent
+        self.db = DatabaseManager()
         self.row = row
         self.abreviaturas = {
             "KILOGRAMO": "KL",
@@ -78,7 +81,9 @@ class AutComboBox(QComboBox):
         self.parsear_data_to_combo(data_match)
 
     def matching_items(self, text):
-        data_match = match_product_fuzzy(text)
+        if text is None:
+            return ""
+        data_match = self.db.match_product_fuzzy(text)
         print("Data match:", data_match)
         return data_match
 
