@@ -29,9 +29,7 @@ class ClienteView(QWidget):
         if self.parent.tipo_documento_combo.currentText() == "Factura":
             if not self.ruc_cliente.text().strip():
                 return False, "El RUC es obligatorio para Factura."
-        if self.parent.tipo_documento_combo.currentText() == "Boleta":
-            if not self.num_doc_entry.text().strip():
-                return False, "El DNI es obligatorio para Factura."
+
         return True, ""
 
     def initUI(self):

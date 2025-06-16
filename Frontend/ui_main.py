@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import ( QWidget, QLabel, QPushButton, QVBoxLayout,
                               QDialog, QMessageBox)
 from PyQt5.QtGui import QPixmap
 
-from Backend.BoletaController import BoletaController
+from Backend.BoletaController import BoletaController, BoletaWorker
 from Backend.img_to_json import process_image_to_json
 from DataBase.DatabaseManager import DatabaseManager
 
@@ -66,9 +66,9 @@ class BoletaApp(QWidget):
 
         self.selected_remitente_id = None
         self.tipo_documento_combo= None
-        self.product_view = ProductView(self,)  # ✅ Pasamos `self` como `parent`
+        self.product_view = ProductView(self,)
         self.cliente_view = ClienteView(self,self.tipo_documento_combo)
-        self.resumen_view = ResumenView()
+        self.resumen_view = ResumenView(db=self.db)
         self.initUI()
 
         self.actualizar_tipo_documento= None
@@ -203,10 +203,10 @@ class BoletaApp(QWidget):
             self.productos_disponibles = []
             QMessageBox.critical(self, "Error", f"No se pudieron cargar los productos: {e}")
 
+
     def procesar_boleta(self):
-        """Prepara los datos de la boleta y delega la emisión al Controller."""
         logging.info("Procesando boleta...")
-        # Validaciones + armado + emisión + manejo de errores
+
         if not self.controller.validar_envio(self.selected_remitente_id, self.cliente_view):
             return
 
@@ -218,12 +218,9 @@ class BoletaApp(QWidget):
 
         logging.info(f"Datos actualizados de boleta: {boleta_data}")
 
-        try:
-            self.controller.emitir_boleta(boleta_data)
-            self.enviar_button.setEnabled(False)
-        except Exception as e:
-            logging.error(f"Error en emisión: {e}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"No se pudo emitir:\n{e}")
+        self.enviar_button.setEnabled(False)
+        self.controller.emitir_boleta(boleta_data)
+        print("enviado")
     def display_image(self, file_path):
         """Muestra la imagen seleccionada en la interfaz."""
         pixmap = QPixmap(file_path).scaled(300, 300, Qt.KeepAspectRatio)
@@ -244,6 +241,7 @@ class BoletaApp(QWidget):
                 self.remitente_label.setText(f"Remitente: {self.selected_remitente}")
 
                 self.resumen_view.actualizar_serie_y_numero(self.selected_remitente_id, self.tipo_documento_combo.currentText())
+
             else:
                 logging.error(" No se pudo obtener el remitente seleccionado.")
                 QMessageBox.warning(self, "Error", "No se pudo obtener el remitente seleccionado.")
@@ -264,5 +262,13 @@ class BoletaApp(QWidget):
     def closeEvent(self, event):
         self.db.close()  # Cerra la conexión
         event.accept()
+    def on_boleta_emitida(self):
+        QMessageBox.information(self, "Éxito", "Boleta emitida correctamente")
+        self.enviar_button.setEnabled(True)
+
+    def on_boleta_error(self, mensaje):
+        QMessageBox.critical(self, "Error", f"No se pudo emitir la boleta:\n{mensaje}")
+        self.enviar_button.setEnabled(True)
+
 
 

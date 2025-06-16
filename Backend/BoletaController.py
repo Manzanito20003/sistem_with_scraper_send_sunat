@@ -23,7 +23,6 @@ class BoletaController:
         Envio de la boleta con scraping
         """
         logging.info("Boleta emitida correctamente.")
-
         send_billing_sunat(boleta_data)
 
         return True
@@ -114,18 +113,18 @@ class BoletaController:
             logging.error(f"No se pudo completar la inserción de productos o la boleta. Detalle: {e}")
             return
 
-
 class BoletaWorker(QThread):
-    finished = pyqtSignal()           # Señal cuando termina con éxito
-    error = pyqtSignal(str)           # Señal si hay un error (con mensaje)
+    finished = pyqtSignal()
+    error = pyqtSignal(str)
 
-    def __init__(self, boleta_data):
+    def __init__(self, boleta_data, controller):
         super().__init__()
         self.boleta_data = boleta_data
+        self.controller = controller
 
-    def run(self):  # Esta función en segundo plano para enviar la boleta
+    def run(self):
         try:
-            self.db.enviar_boleta(self.boleta_data)
-            self.finished.emit()             # Señal de éxito
+            self.controller.emitir_boleta(self.boleta_data)
+            self.finished.emit()
         except Exception as e:
-            self.error.emit(str(e))          # Señal de error
+            self.error.emit(str(e))

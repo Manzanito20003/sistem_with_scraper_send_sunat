@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QGroupBox, QMessageBox
 class ResumenView(QWidget):
     def __init__(self,db=None):
         super().__init__()
-        self.initUI()
         self.db = db
+        self.initUI()
 
         self.data = {}
         self.serie=""
@@ -53,13 +53,13 @@ class ResumenView(QWidget):
         self.total_label.setText(f"Total importe: S/ {total_importe:.2f}")
 
 
-    def actualizar_serie_y_numero(self,id_sender=0,tipo_documento="Boleta"):
+    def actualizar_serie_y_numero(self,id_sender=None,tipo_documento="Boleta"):
         """Actualiza la serie y número de documento basado en la selección de tipo y el ID del remitente."""
 
-
-
+        if id_sender is None:
+            return
         num_documento = self.db.get_next_invoice_number(id_sender)
-        if num_documento is None:
+        if num_documento is None :
             logging.error(f" No se pudo obtener el número de documento para el remitente {id_sender}")
             QMessageBox.critical(self, f"Error", f"No se pudo obtener el número de documento {id_sender}")
             return # No se pudo obtener el número
