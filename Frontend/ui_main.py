@@ -1,26 +1,23 @@
+# Standard
+import json
+import logging
 
-
-from PyQt5.QtWidgets import ( QWidget, QLabel, QPushButton, QVBoxLayout,
-                             QFileDialog, QHBoxLayout, QGroupBox,
-                              QDialog, QMessageBox)
+# Third-party
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import (
+    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
+    QFileDialog, QGroupBox, QDialog, QMessageBox, QComboBox
+)
 
+# App-specific
 from Backend.BoletaController import BoletaController, BoletaWorker
 from Backend.img_to_json import process_image_to_json
 from DataBase.DatabaseManager import DatabaseManager
-
-# DB
 from Frontend.cliente_view import ClienteView
 from Frontend.producto_view import ProductView
 from Frontend.remitente_dialog import RemitenteDialog
 from Frontend.resumen_view import ResumenView
-
-from PyQt5.QtWidgets import QComboBox
-from PyQt5.QtCore import Qt
-
-#log
-import logging
-import json
 
 logging.basicConfig(
     level=logging.DEBUG,
