@@ -3,7 +3,8 @@ from Frontend.ui_main import BoletaApp
 from DataBase.admin_bd import modo_consola_sqlite
 
 import sys
-if __name__ == "__main__":
+
+def main():
     if "--admin" in sys.argv:
         modo_consola_sqlite()
         print("Modo administrador activado.")
@@ -12,3 +13,10 @@ if __name__ == "__main__":
         window = BoletaApp()
         window.show()
         sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        print("Error al ejecutar la app",e)
+

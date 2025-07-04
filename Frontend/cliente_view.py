@@ -9,10 +9,9 @@ from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit, QDateEdit, QLabel
 
 class ClienteView(QWidget):
     def __init__(self, parent=None, tipo_documento_combo=None):
-        super().__init__()  # ✅ Llamar al constructor de la clase base
-
+        super().__init__()
         self.parent = parent
-        self.tipo_documento_combo = tipo_documento_combo  # ✅ Ahora tiene acceso a tipo_documento_combo
+        self.tipo_documento_combo = tipo_documento_combo
 
         self.num_doc_entry = None
         self.nombre_entry = None
@@ -25,7 +24,6 @@ class ClienteView(QWidget):
         self.data = {}
     def validate(self):
         """Valida los campos del formulario de cliente."""
-        print(f"Nombre: {self.parent.tipo_documento_combo.currentText()}")
         if self.parent.tipo_documento_combo.currentText() == "Factura":
             if not self.ruc_cliente.text().strip():
                 return False, "El RUC es obligatorio para Factura."
@@ -44,12 +42,13 @@ class ClienteView(QWidget):
         self.fecha_entry = QDateEdit()
 
         # Configuración de campos
+        self.num_doc_entry.setValidator(QIntValidator())
+        self.num_doc_entry.setMaxLength(8)
+        self.ruc_cliente.setMaxLength(11)
+
         self.ruc_cliente.textChanged.connect(self.actualizar_tipo_documento)
         self.fecha_entry.setCalendarPopup(True)
         self.fecha_entry.setDate(QDate.currentDate())
-        self.num_doc_entry.setValidator(QIntValidator())
-
-
 
         # Agregar widgets al layout
         cliente_layout.addWidget(QLabel("No. DNI"), 0, 0)
@@ -57,7 +56,6 @@ class ClienteView(QWidget):
 
         cliente_layout.addWidget(QLabel("Nombre"), 0, 3)
         cliente_layout.addWidget(self.nombre_entry, 0, 4)
-
 
         cliente_layout.addWidget(QLabel("RUC"), 1, 0)
         cliente_layout.addWidget(self.ruc_cliente, 1, 1, 1, 2)
@@ -75,8 +73,7 @@ class ClienteView(QWidget):
 
     def actualizar_tipo_documento(self):
         """Cambia automáticamente el tipo de documento a 'Factura' si se ingresa un RUC."""
-
-        if self.ruc_cliente.text().strip():  # Si hay un RUC ingresado
+        if self.ruc_cliente.text().strip():
             self.parent.tipo_documento_combo.setCurrentText("Factura")
         else:
             self.parent.tipo_documento_combo.setCurrentText("Boleta")
@@ -87,9 +84,9 @@ class ClienteView(QWidget):
             self.num_doc_entry.setText(cliente_data.get("dni", ""))
             self.nombre_entry.setText(cliente_data.get("cliente", ""))
             self.ruc_cliente.setText(cliente_data.get("ruc", ""))
-            #para el fecha
+
             fecha_str=cliente_data.get("fecha","")
-            fecha_qdate = QDate.fromString(fecha_str, "dd/MM/yy")
+            fecha_qdate = QDate.fromString(fecha_str, "dd/MM/yyyy")
             self.fecha_entry.setDate(fecha_qdate)
         except Exception as e:
             logging.error(f"No se pudieron cargar los datos del cliente: {e}", exc_info=True)
@@ -99,7 +96,7 @@ class ClienteView(QWidget):
         self.data['nombre'] = self.nombre_entry.text()
         self.data['dni'] = self.num_doc_entry.text()
         self.data['ruc'] = self.ruc_cliente.text()
-        self.data["fecha"] = self.fecha_entry.date().toString("dd/MM/yyyy")  # ✅ Formato correcto
+        self.data["fecha"] = self.fecha_entry.date().toString("dd/MM/yyyy")
 
         return self.data
 

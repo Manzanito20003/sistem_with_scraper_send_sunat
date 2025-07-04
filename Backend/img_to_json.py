@@ -45,7 +45,7 @@ def process_image_to_json(image_path):
                     "unidad_medida": "CAJA" (si es otro producto) o "KILOGRAMO" (si es menestra tipo STRING)
                     "descripcion": "Descripción del producto (tipo STRING)",
                     "precio_base": X.XX,   (precio base del producto opcional tipo FLOAT)
-                    "Igv": 1 (si incluye IGV) o 0 (si no incluye IGV, debes considerar que las menestras Peruanas no incluyen IGV)
+                    "igv": 1 (si incluye IGV) o 0 (si no incluye IGV, debes considerar que las menestras Peruanas no incluyen IGV)
                     "precio_total": x.xx (precio total del producto a pagar tipo FLOAT)
 
                 }

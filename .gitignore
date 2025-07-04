@@ -11,7 +11,7 @@ venv/
 *.db
 *.json
 *.jpeg
-
+*.pytest_cache
 
 # Archivos de caché y compilación de Python
 __pycache__/

@@ -1,4 +1,3 @@
-import json
 import os
 import time
 from datetime import datetime
@@ -13,69 +12,77 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-
 
 from DataBase.DatabaseManager import DatabaseManager
 
-
-db=DatabaseManager()
+db = DatabaseManager()
 
 import logging
 
 logging.getLogger("selenium").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
+log_dir = os.path.join(os.path.dirname(__file__), "logs")
+os.makedirs(log_dir, exist_ok=True)  # Crea la carpeta si no existe
+
+log_file = os.path.join(log_dir, f"sunat_{datetime.today().date()}.log")
+
+# Configura logging
+logging.basicConfig(
+    filename=log_file,
+    filemode='a',
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 def slow_typing(element, text, delay=0.1):
     # for char in text:
     #     element.send_keys(char)
     #     time.sleep(delay)
-
     element.send_keys(text)
-
 
 
 def get_client(id):
     """Obtiene los datos del cliente desde DB"""
-    sender=db.get_sender_by_id(id)
+    sender = db.get_sender_by_id(id)
 
-    print("sende:",sender)
+    logging.info(f"sende: {sender}")
     if sender:
-        ruc=sender[2]
-        user=sender[3]
-        password=sender[4]
-        return ruc,user,password
+        ruc = sender[2]
+        user = sender[3]
+        password = sender[4]
+        return ruc, user, password
     else:
-        return None,None,None
+        return None, None, None
 
 
 # Función para agregar productos
-def agregar_producto(driver, producto,tipo_documento):
+def agregar_producto(driver, producto, tipo_documento):
     """Agregar un producto al sistema."""
     try:
-        descripcion=producto["descripcion"]
-        precio_base=producto["precio_base"]
-        cantidad=producto["cantidad"]
-        unidad_medida=producto["unidad_medida"]
-        igv=producto["Igv"]
+        logging.info("Agregando Productos")
+        descripcion = producto["descripcion"]
+        precio_base = producto["precio_base"]
+        cantidad = producto["cantidad"]
+        unidad_medida = producto["unidad_medida"]
+        igv = producto["igv"]
 
-        print("--" * 15)
-        print("\ndescripcion:",descripcion)
-        print("\nprecio_base:", precio_base)
-        print("\ncantidad:", cantidad)
-        print("\nigv:", igv)
+        logging.debug("-" * 30)
+        logging.debug(f"Descripción: {descripcion}")
+        logging.debug(f"Precio base: {precio_base}")
+        logging.debug(f"Cantidad: {cantidad}")
+        logging.debug(f"IGV: {igv}")
+        logging.debug("-" * 30)
 
-        print("--" * 15)
         # Esperar que el overlay desaparezca
         WebDriverWait(driver, 20).until(
             EC.invisibility_of_element_located((By.ID, "waitMessage_underlay"))
         )
-        #entrar al agregar producto
-        if tipo_documento=="Boleta":
+        # entrar al agregar producto
+        if tipo_documento == "Boleta":
             boton_adicionar = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "boleta.addItemButton"))
             )
-        if tipo_documento=="Factura":
+        if tipo_documento == "Factura":
             boton_adicionar = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.ID, "factura.addItemButton_label"))
             )
@@ -107,12 +114,11 @@ def agregar_producto(driver, producto,tipo_documento):
         )
         descripcion_textarea.clear()
         descripcion_textarea.send_keys(descripcion)
-        print("se puso correctamente la descipcion")
+
         # Ingresar precio base
         precio_unitario_input = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.ID, "item.precioUnitario"))
         )
-
 
         precio_unitario_input.clear()
 
@@ -133,15 +139,16 @@ def agregar_producto(driver, producto,tipo_documento):
             EC.presence_of_element_located((By.ID, "item.botonAceptar_label"))
         )
         boton_aceptar.click()
-        print("Producto agregado con éxito")
+        logging.info("Producto agregado con éxito")
 
     except Exception as e:
-        print(f"Error al agregar producto: {e}")
+        logging.error(f"Error al agregar producto: {e}")
 
 
 # Función para configurar el WebDriver
 def configurar_driver(headless=True):
     """Configurar el WebDriver de Chrome con las opciones adecuadas."""
+    logging.info("Configurando Drivers")
     load_dotenv()
 
     chrome_driver_path = ChromeDriverManager().install()
@@ -167,9 +174,10 @@ def configurar_driver(headless=True):
 
 
 # Función para iniciar sesión
-def iniciar_sesion(driver,sender_id=1):
+def iniciar_sesion(driver, sender_id=1):
     """Iniciar sesión en la página utilizando credenciales de entorno."""
     try:
+        logging.info("Iniciando Secion en la Pagina")
         url = os.getenv('URL')
         driver.get(url)
 
@@ -180,8 +188,7 @@ def iniciar_sesion(driver,sender_id=1):
         iniciar_sesion_button = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "btnAceptar")))
 
         # Obtener credenciales
-        MY_RUC,MY_USER,MY_PASS=get_client(sender_id)
-
+        MY_RUC, MY_USER, MY_PASS = get_client(sender_id)
 
         # Ingresar credenciales
         slow_typing(ruc_input, MY_RUC, delay=0.2)
@@ -190,28 +197,24 @@ def iniciar_sesion(driver,sender_id=1):
 
         # Clic en "Aceptar"
         iniciar_sesion_button.click()
-        print("Inicio de sesión exitoso")
-
+        logging.info("Inicio de sesión exitoso")
     except TimeoutException:
-        print("Tiempo de espera excedido durante el inicio de sesión")
+        logging.error("Tiempo de espera excedido durante el inicio de sesión")
     except NoSuchElementException:
-        print("No se encontraron los elementos de inicio de sesión")
+        logging.critical("No se encontraron los elementos de inicio de sesión")
 
 
-
-
-def emitir_boleta(driver,data):
+def emitir_boleta(driver, data):
     """Función para emitir una boleta a través de la interfaz web."""
     try:
-        print("data:",data)
+        logging.info("emitiendo boleta")
+        logging.info(f"data recibida en emitir boleta: {data}")
         data_cliente = data["cliente"]
+        # datos de cliente
+        fecha = data_cliente["fecha"]
+        cliente = data_cliente["nombre"]
+        dni = data_cliente["dni"]
 
-        #datos de cliente
-        fecha=data_cliente["fecha"]
-        cliente=data_cliente["nombre"]
-        dni=data_cliente["dni"]
-
-        print("paso la extraccion de datos")
         # Buscar "BOLETA" en el campo de búsqueda
         campo_busqueda = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "txtBusca")))
         campo_busqueda.send_keys("BOLETA")
@@ -220,8 +223,6 @@ def emitir_boleta(driver,data):
         emitir_boleta = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.XPATH, "//span[contains(text(), 'Emitir Boleta de Venta')]")))
         emitir_boleta.click()
-        print("[DEBUG] Emitiendo boleta de venta...")
-
 
         # Cambiar al iframe de emisión de boleta
         WebDriverWait(driver, 20).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "iframeApplication")))
@@ -231,16 +232,15 @@ def emitir_boleta(driver,data):
             EC.presence_of_element_located((By.ID, "inicio.tipoDocumento")))
         input_tipo_documento.clear()
 
-        if dni!="":
-            print("el dcoumento es con dni")
+        if dni != "":
+            logging.info("Emitiendo con dni ")
             input_tipo_documento.send_keys("DOC. NACIONAL DE IDENTIDAD")
             input_tipo_documento.send_keys(Keys.RETURN)
 
             input_nro_dni = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.ID, "inicio.numeroDocumento")))
             input_nro_dni.send_keys(dni)
-            print("se puso correctamente el tipo de documento con DNI:", dni)
-            #sacar el foco
+            # sacar el foco
             input_nro_dni.send_keys(Keys.TAB)
 
             WebDriverWait(driver, 20).until(
@@ -249,63 +249,50 @@ def emitir_boleta(driver,data):
 
             razon_social = driver.find_element(By.ID, "inicio.razonSocial").get_attribute("value")
 
-            print(f"Razón Social detectada: {razon_social}")
-
+            logging.info("Razon social detectado",razon_social)
         else:
+            logging.info("Emitiendo sin documento ")
             input_tipo_documento.send_keys("SIN DOCUMENTO")
             input_tipo_documento.send_keys(Keys.RETURN)
-            print("se puso correctamente el tipo de documento")
 
             input_razon_social = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.ID, "inicio.razonSocial")))
+                EC.presence_of_element_located((By.ID, "inicio.razonSocial")))
             input_razon_social.send_keys(cliente)
-            print("se puso correctamente la razon social")
 
         time.sleep(1)
 
-
-        #continuar con el proceso de ingreso
+        # continuar con el proceso de ingreso
         boton_continuar = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "inicio.botonGrabarDocumento_label")))
         boton_continuar.click()
-        print("se puso correctamente el boton continuar")
-
-        #agregar fechar
-
-        """ LA FECHA SOLO DEBE SER OPCIONAL EN CASO (NO HAY SE DEBE PONER LA DE HOY)"""
-
-        date_validated = validate_date(fecha)
-
 
         input_fecha = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "boleta.fechaEmision"))
         )
         input_fecha.clear()
-        input_fecha.send_keys(date_validated)
+        input_fecha.send_keys(fecha)
 
         for producto in data["productos"]:
-            agregar_producto(driver, producto,tipo_documento="Boleta")
-        print("products added correctly :)")
-        total=data["resumen"]["total"]
-        validate_importe_all(driver,total)
+            agregar_producto(driver, producto, tipo_documento="Boleta")
+        total = data["resumen"]["total"]
+        validate_importe_all(driver, total)
 
-
+        logging.info("boleta emitido correctamente")
     except TimeoutException:
-        print("Tiempo de espera excedido durante la emisión de la boleta")
+        logging.error("Tiempo de espera excedido durante la emisión de la boleta")
     except NoSuchElementException:
-        print("No se encontraron los elementos necesarios para la emisión de la boleta")
-
+        logging.critical("No se encontraron los elementos necesarios para la emisión de la boleta")
 
 
 def emitir_factura(driver, data):
     """Función para emitir una factura a través de la interfaz web."""
     try:
+        logging.info("emitiendo Factura")
         # datos de cliente
         data_cliente = data["cliente"]
-
         fecha = data_cliente["fecha"]
-        #cliente = data_cliente["cliente"] # no es necesario
-        #dni = data_cliente["dni"]   # no es necesario
+        # cliente = data_cliente["cliente"] # no es necesario
+        # dni = data_cliente["dni"]   # no es necesario
         ruc = data_cliente["ruc"]
 
         # Buscar "factura" en el campo de búsqueda
@@ -319,22 +306,22 @@ def emitir_factura(driver, data):
             EC.element_to_be_clickable((By.XPATH, "//*[@id='nivel4_11_5_3_1_1']/span/span"))
         )
         emitir_boleta.click()
-        print("[DEBUG] Emitiendo factura de venta...")
 
         # Esperar a que el iframe esté disponible y cambiar a él (descomentado si es necesario)
         WebDriverWait(driver, 20).until(
             EC.frame_to_be_available_and_switch_to_it((By.ID, "iframeApplication"))
         )
 
-        print("[DEBUG] Ingresando datos de la factura...")
-        print("RUC:", ruc)
-        print("type:",type(ruc))
+        logging.debug("Ingresando datos de la factura...")
+        logging.debug(f"RUC: {ruc}")
+        logging.debug(f"Type: {type(ruc)}")
+
         # Ingresar el RUC
         input_ruc = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.ID, "inicio.numeroDocumento"))
         )
         input_ruc.send_keys(ruc)
-        #tab para sacar el foco
+        # tab para sacar el foco
         input_ruc.send_keys(Keys.TAB)
         # Esperar a que el campo de razón social se llene automáticamente
         WebDriverWait(driver, 20).until(
@@ -357,10 +344,8 @@ def emitir_factura(driver, data):
             EC.element_to_be_clickable((By.ID, "inicio.botonGrabarDocumento_label"))
         )
         boton_continuar.click()
-        print("Se presionó correctamente el botón continuar")
 
         # Ingresar la fecha de emisión
-
         input_fecha = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "factura.fechaEmision"))
         )
@@ -369,7 +354,7 @@ def emitir_factura(driver, data):
 
         # Agregar productos
         for producto in data["productos"]:
-            agregar_producto(driver, producto,tipo_documento="Factura")
+            agregar_producto(driver, producto, tipo_documento="Factura")
         print("Productos agregados correctamente.")
 
         # Validar importe total TODO: Revisar si es necesario
@@ -377,123 +362,46 @@ def emitir_factura(driver, data):
         validate_importe_all(driver, total)
 
     except TimeoutException:
-        print("Tiempo de espera excedido durante la emisión de la factura")
+        logging.error("Tiempo de espera excedido durante la emisión de la factura")
     except NoSuchElementException:
-        print("No se encontraron los elementos necesarios para la emisión de la factura")
+        logging.critical("No se encontraron los elementos necesarios para la emisión de la factura")
     except Exception as e:
-        print(f"Error inesperado: {e}")
-
-
-
-
-
-
+        logging.critical(f"Error inesperado: {e}")
 
 def send_billing_sunat(data, sender_id=1):
     """Envía la boleta a la SUNAT utilizando un navegador automatizado."""
-
-    print(" [DEBUG] Iniciando proceso de emisión en SUNAT...")
-
-    # Validación de datos
-    if not data:
-        print("[ERROR] No hay datos en `data`. No se puede emitir la boleta.")
-        return
-
+    logging.info("Iniciando proceso de emisión en SUNAT...")
+    logging.info(f"Datos cargados correctamente: {data}")
     if 'productos' not in data or len(data['productos']) == 0:
-        print("[ERROR] La boleta no contiene productos. No se puede enviar a SUNAT.")
+        logging.critical("[ERROR] La boleta no contiene productos. No se puede enviar a SUNAT.")
         return
 
-    print(f"[INFO] Enviando boleta con los siguientes datos:\n"
-          f"    - Remitente ID: {sender_id}\n"
-          f"    - Cliente: {data.get('cliente', 'N/A')}\n"
-          f"    - DNI: {data.get('dni', 'N/A')}\n"
-          f"    - RUC: {data.get('ruc', 'N/A')}\n"
-          f"    - Total: S/ {data.get('total', 0):.2f}\n"
-          f"    - Cantidad de productos: {len(data.get('productos', []))}")
+    cliente = data.get("cliente", {})
+    resumen = data.get("resumen", {})
+
+    logging.info(f"   - Cliente: {cliente.get('nombre', 'N/A')}")
+    logging.info(f"   - DNI: {cliente.get('dni', 'N/A')}")
+    logging.info(f"   - RUC: {cliente.get('ruc', 'N/A')}")
+    logging.info(f"   - Total: S/ {resumen.get('total', 0):.2f}")
 
     try:
-        print("[DEBUG] Configurando WebDriver para conexión con SUNAT...")
         driver = configurar_driver()  # Configurar e iniciar el driver
-        print("[SUCCESS] WebDriver configurado correctamente.")
-
-        print(f"[DEBUG] Iniciando sesión en SUNAT con remitente ID: {sender_id}...")
         iniciar_sesion(driver, sender_id)  # Iniciar sesión
-        print("[SUCCESS] Sesión iniciada correctamente.")
-
-        print("[DEBUG] Enviando SUNAT...")
-        if data["tipo_documento"]=="Boleta":
-            print("se va a emitir una boleta")
+        if data["tipo_documento"] == "BOLETA":
             emitir_boleta(driver, data)
-        if data["tipo_documento"]=="Factura":
-            print("se va a emitir una factura")
-            emitir_factura(driver,data)
+        if data["tipo_documento"] == "FACTURA":
+            emitir_factura(driver, data)
 
-
-        print("[SUCCESS] Boleta enviada correctamente a SUNAT.")
-
+        logging.info(f"{data['tipo_documento']}enviado correctamente a sunat")
         # Tiempo para revisión manual si es necesario
-        print("[DEBUG] Manteniendo navegador abierto por 900 segundos para revisión manual...")
+        logging.debug("Manteniendo navegador abierto por 900 segundos para revisión manual...")
         time.sleep(900)
 
     except Exception as e:
-        print(f"[ ERROR] Ocurrió un error durante el proceso de facturación en SUNAT: {e}")
+        logging.error(f"Ocurrió un error durante el proceso de facturación en SUNAT: {e}")
     finally:
-        print("[INFO] Finalizando proceso de emisión en SUNAT.")
-        # driver.quit()  # Descomentar para cerrar el navegador después de la revisión
-
-
-def calculate_unit_price(total_price, quantity, includes_tax):
-    """
-    Calculates the unit price of a product with or without tax.
-
-    :param total_price: Total price of the product
-    :param quantity: Total quantity of products sold
-    :param includes_tax: (1) includes tax, (0) without tax
-    :return: Unit price with or without tax, formatted to 4 decimal places
-    """
-    if includes_tax == 1:
-        unit_price = round(total_price / (quantity * 1.18), 4)
-    else:
-        unit_price = round(total_price / quantity, 4)
-
-    return f"{unit_price:.4f}"
-
-
-def parse_date(date_str):
-    """
-    Converts a date string in "dd-mm-yy" format to a datetime.date object.
-
-    :param date_str: Date as a string in "dd-mm-yy" format.
-    :return: datetime.date object if valid, or None if date_str is None.
-    :raises ValueError: If the date format is invalid.
-    """
-    if date_str is None:
-        return None
-    try:
-        return datetime.strptime(date_str, "%d-%m-%y").date()
-    except ValueError:
-        raise ValueError("Invalid date format. Expected format: dd-mm-yy.")
-
-
-def validate_date(date_emision):
-    today_date = datetime.today().date()
-    formatted_today = today_date.strftime("%d/%m/%Y")
-
-    try:
-        # Convertir la fecha de emisión a objeto date
-        date_emision_obj = datetime.strptime(date_emision, "%d/%m/%Y").date()
-
-        # Verificar si la fecha de emisión es mayor a 2 días antes de hoy
-        if (today_date - date_emision_obj).days > 2:
-            print("[ERROR] La fecha de emisión es mayor a 2 días")
-            return None  # Indicar que la fecha no es válida
-
-        return formatted_today  # Retorna la fecha actual en formato correcto
-
-    except ValueError as e:
-        print(f"[ERROR] Ocurrió un error en la validación de fecha: {e}")
-        return None  # Indicar error
-
+        logging.info("[INFO] Finalizando proceso de emisión en SUNAT.")
+        driver.quit()
 
 
 def validate_importe_all(driver, total):
@@ -512,25 +420,26 @@ def validate_importe_all(driver, total):
 
         # Compara el valor obtenido con el valor esperado
         if float(actual_value) == float(total):
-            print("El valor de la caja coincide con el total esperado.")
+            logging.info("El valor de la caja coincide con el total esperado.")
             return True
         else:
-            print(f"El valor de la caja ({actual_value}) no coincide con el total esperado ({total}).")
+            logging.error(f"El valor de la caja ({actual_value}) no coincide con el total esperado ({total}).")
             return False
 
     except Exception as e:
-        print("Error al validar el valor:", e)
+        logging.critical(f"Error al validar el valor: {e}")
         return False
-
-
-
 
 
 # Ejecutar el de prueba
 if __name__ == "__main__":
+    data = {'cliente': {'nombre': 'TONFAY COMPANY', 'dni': '75276980', 'ruc': '', 'fecha': '03/07/2025'}, 'productos': [
+        {'cantidad': 2.0, 'descripcion': '', 'unidad_medida': 'KILOGRAMO', 'precio_base': 32.0, 'Igv': 0,
+         'Total IGV': 0.0, 'precio_total': 64.0},
+        {'cantidad': 1.0, 'descripcion': '', 'unidad_medida': 'KILOGRAMO', 'precio_base': 36.0, 'Igv': 0,
+         'Total IGV': 0.0, 'precio_total': 36.0}],
+            'resumen': {'serie': 'B05-18', 'numero': '18', 'igv_total': 0.0, 'total': 100.0}, 'id_cliente': None,
+            'id_remitente': 5, 'tipo_documento': 'BOLETA'}
 
-    data = {'cliente': {'nombre': 'TONFAY COMPANY', 'dni': '75276980', 'ruc': '', 'fecha': '23/04/2025'}, 'productos': [{'cantidad': 2.0, 'descripcion': '', 'unidad_medida': 'KILOGRAMO', 'precio_base': 32.0, 'Igv': 0, 'Total IGV': 0.0, 'precio_total': 64.0}, {'cantidad': 1.0, 'descripcion': '', 'unidad_medida': 'KILOGRAMO', 'precio_base': 36.0, 'Igv': 0, 'Total IGV': 0.0, 'precio_total': 36.0}], 'resumen': {'serie': 'B05-18', 'numero': '18', 'igv_total': 0.0, 'total': 100.0}, 'id_cliente': None, 'id_remitente': 5, 'tipo_documento': 'Boleta'}
 
-
-
-    send_billing_sunat(data,sender_id=2)
+    send_billing_sunat(data, sender_id=2)

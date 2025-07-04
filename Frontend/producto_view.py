@@ -21,11 +21,10 @@ class ProductView(QWidget):
 
         self.initUI()
     def initUI(self):
-        logging.info("Inicializando ProductView...")  # 🔹 Log para ver si se ejecuta el constructor
-
         """Inicializa y devuelve el widget de productos."""
-        productos_widget = QWidget()  # 🔹 Crear un QWidget contenedor
-        productos_layout = QVBoxLayout(productos_widget)  # 🔹 Asociar el layout al widget
+        logging.info("Inicializando ProductView...")
+        productos_widget = QWidget()
+        productos_layout = QVBoxLayout(productos_widget)
 
         productos_box = QGroupBox("Productos")
         productos_layout_inner = QVBoxLayout()

@@ -25,11 +25,11 @@ class ResumenView(QWidget):
 
         resumen_box = QGroupBox("Resumen")
 
-        # 🔹 Agregar etiquetas dinámicas
+        # Agregar etiquetas dinámicas
         self.serie_label = QLabel("Serie: B00-00")
         self.numero_label = QLabel("Número: 00")
-        self.igv_label = QLabel("Total IGV: S/ 0.00")  # 🟢 Cambiará dinámicamente
-        self.total_label = QLabel("Total importe: S/ 0.00")  # 🟢 Cambiará dinámicamente
+        self.igv_label = QLabel("Total IGV: S/ 0.00")
+        self.total_label = QLabel("Total importe: S/ 0.00")
 
         # Agregar widgets al layout
         resumen_layout.addWidget(self.serie_label)
@@ -64,7 +64,7 @@ class ResumenView(QWidget):
             QMessageBox.critical(self, f"Error", f"No se pudo obtener el número de documento {id_sender}")
             return # No se pudo obtener el número
 
-        # 🔹 Determinar el prefijo según el tipo de documento
+        # Determinar el prefijo según el tipo de documento
         prefijo = "B" if tipo_documento == "Boleta" else "F"
 
         serie = f"{prefijo}{id_sender:02d}-{num_documento:02d}"
@@ -81,8 +81,6 @@ class ResumenView(QWidget):
 
     def obtener_datos_resumen(self):
         """Obtiene los datos del resumen."""
-
-
         return {
             "serie": self.serie,
             "numero": self.numero,

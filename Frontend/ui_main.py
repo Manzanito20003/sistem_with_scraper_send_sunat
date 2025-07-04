@@ -32,78 +32,24 @@ logging.basicConfig(
 from PyQt5.QtCore import QThread, pyqtSignal
 
 
-class Procces_imgWorker(QThread):
-    finished = pyqtSignal()           # Señal cuando termina con éxito
-    error = pyqtSignal(str)           # Señal si hay un error (con mensaje)
-    data_signal = pyqtSignal(dict)          # Señal para enviar los datos procesados
-    def __init__(self, boleta_data):
-        super().__init__()
-        self.boleta_data = boleta_data
-
-    def run(self):  # Esta función en segundo plano para enviar la boleta
-        try:
-            data =process_image_to_json(self.boleta_data)
-            if isinstance(data, str):
-                data = json.loads(data)  # Asegura que sea dict
-
-            self.data_signal.emit(data)  # Emitir la señal con los datos procesados
-            self.finished.emit()
-            # Señal de éxito
-        except Exception as e:
-            self.error.emit(str(e))          # Señal de error
-
-
-
 
 class BoletaApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.db = DatabaseManager() # mi conexion :)
+
+        self.db = DatabaseManager()
         self.controller = BoletaController(self.db)
 
+        self.tipo_documento_combo = QComboBox()
+        self.tipo_documento_combo.addItems(["Boleta", "Factura"])
         self.selected_remitente_id = None
-        self.tipo_documento_combo= None
-        self.product_view = ProductView(self,)
-        self.cliente_view = ClienteView(self,self.tipo_documento_combo)
+        self.actualizar_tipo_documento = None
+
+        self.product_view = ProductView(self, )
+        self.cliente_view = ClienteView(self, self.tipo_documento_combo)
         self.resumen_view = ResumenView(db=self.db)
+
         self.initUI()
-
-        self.actualizar_tipo_documento= None
-
-    def subir_imagen(self):
-        """aqui se sube la imagen y se procesa con AI """
-        logging.info(" Iniciando función subir_imagen...")
-        try:
-            # Selección de archivo
-            file_path, _ = QFileDialog.getOpenFileName()
-
-            if not file_path:
-                logging.warning(" No se seleccionó ningún archivo.")
-                QMessageBox.critical("Fallo la eleccion de img.")
-                return
-
-            data= process_image_to_json(file_path)  # Procesar la imagen
-            data = json.loads(data)
-            self.cargar_datos_img(data)  # Cargar los datos en la vista
-            # Mostrar imagen (si lo deseas)
-            self.display_image(file_path)
-
-
-            logging.info("Imagen procesada y datos cargados correctamente.")
-
-        except Exception as e:
-            logging.error(f"Error inesperado al procesar la imagen: {e}", exc_info=True)
-            QMessageBox.critical(self, "Error", f"Ocurrió un error inesperado:\n{e}")
-    def cargar_datos_img(self, data):
-        # Extraer y registrar contenido
-
-        cliente_data = data["cliente"]
-        product_data = data["productos"]
-
-        self.cliente_view.fill_form_client(cliente_data)
-
-        self.product_view.fill_form_fields(product_data)
-
     def initUI(self):
         main_layout = QHBoxLayout()
 
@@ -135,7 +81,6 @@ class BoletaApp(QWidget):
 
 
         left_frame.addWidget(self.borrar_button)  # Agregar el botón al layout izquierdo
-        # 🔹 Agregar ComboBox para seleccionar el tipo de documento
         tipo_label = QLabel("Tipo de documento:")
         self.tipo_documento_combo = QComboBox()
         self.tipo_documento_combo.addItems(["Boleta", "Factura"])
@@ -176,7 +121,7 @@ class BoletaApp(QWidget):
         right_frame.addWidget(self.product_view)  # Ahora devuelve un QWidget
 
         # Sección de Resumen
-        right_frame.addWidget(self.resumen_view)  # ✅ Esto ahora funciona correctamente
+        right_frame.addWidget(self.resumen_view)
         # Botón de Envío
         self.enviar_button = QPushButton("Emitir", self)
         self.enviar_button.setStyleSheet(
@@ -189,6 +134,37 @@ class BoletaApp(QWidget):
         self.setLayout(main_layout)
         self.setWindowTitle("Resumen de Boleta")
         self.resize(1200, 600)
+    def subir_imagen(self):
+        """aqui se sube la imagen y se procesa con AI """
+        logging.info(" Iniciando función subir_imagen...")
+        try:
+            # Selección de archivo
+            file_path, _ = QFileDialog.getOpenFileName()
+
+            if not file_path:
+                logging.warning(" No se seleccionó ningún archivo.")
+                QMessageBox.critical("Fallo la eleccion de img.")
+                return
+
+            data= process_image_to_json(file_path)  # Procesar la imagen
+            data = json.loads(data)
+            self.cargar_datos_img(data)  # Cargar los datos en la vista
+            # Mostrar imagen (si lo deseas)
+            self.display_image(file_path)
+
+
+            logging.info("Imagen procesada y datos cargados correctamente.")
+
+        except Exception as e:
+            logging.error(f"Error inesperado al procesar la imagen: {e}", exc_info=True)
+            QMessageBox.critical(self, "Error", f"Ocurrió un error inesperado:\n{e}")
+    def cargar_datos_img(self, data):
+        # Extraer y registrar contenido
+        cliente_data = data["cliente"]
+        product_data = data["productos"]
+
+        self.cliente_view.fill_form_client(cliente_data)
+        self.product_view.fill_form_fields(product_data)
 
     def cargar_productos(self):
         """Carga todos los productos desde la base de datos al iniciar la app."""
@@ -204,8 +180,10 @@ class BoletaApp(QWidget):
     def procesar_boleta(self):
         logging.info("Procesando boleta...")
 
-        if not self.controller.validar_envio(self.selected_remitente_id, self.cliente_view):
-            return
+        ok,msg= self.controller.validar_envio(self.selected_remitente_id, self.cliente_view)
+
+        if not ok:
+            QMessageBox.warning(None,"Error",msg)
 
         boleta_data = self.controller.armar_boleta_data(
             self.cliente_view, self.product_view, self.resumen_view,
