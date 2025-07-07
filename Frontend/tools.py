@@ -3,12 +3,12 @@ import time
 
 from PyQt5.QtWidgets import QApplication, QComboBox, QVBoxLayout, QWidget
 from PyQt5.QtCore import Qt, QTimer
-from DataBase.DatabaseManager import DatabaseManager  # asegúrate de que esta función esté bien implementada
+from DataBase.DatabaseManager import (
+    DatabaseManager,
+)  # asegúrate de que esta función esté bien implementada
 
 
 class AutComboBox(QComboBox):
-
-
 
     def __init__(self, parent=None, row=None):
         # name_combo es el nombre por defecto (no usado aún)
@@ -20,15 +20,13 @@ class AutComboBox(QComboBox):
             "KILOGRAMO": "KL",
             "UNIDAD": "UN",
             "CAJA": "CJ",
-            "BOLSA": "BS"
+            "BOLSA": "BS",
         }
 
         self.setEditable(True)
         self.setInsertPolicy(QComboBox.NoInsert)
         self.setFocus()
         self.setMinimumWidth(235)
-
-
 
         # ️ Timer para hacer debounce
         # self.debounce_timer = QTimer()
@@ -53,6 +51,7 @@ class AutComboBox(QComboBox):
 
         # Ahora sí mostramos el popup
         super().showPopup()
+
     def restart_debounce(self):
         self.debounce_timer.start()
 
@@ -65,9 +64,7 @@ class AutComboBox(QComboBox):
         print("Descripción actual:", descripcion_actual)
         ## Si el texto está vacío, limpiar el combo
         if descripcion_actual.split() == "":
-
             return
-
 
         self.clear()
         data_match = self.matching_items(descripcion_actual)
@@ -104,6 +101,7 @@ class AutComboBox(QComboBox):
         else:
             print("Error: la fila (row) es None o no se pasó correctamente.")
 
+
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -118,7 +116,9 @@ class MainWindow(QWidget):
 
     def actualizar_producto_seleccionado(self, index, datos):
         nombre, precio, unidad, igv, id_producto = datos
-        print(f"Producto seleccionado: {nombre} | Precio: {precio} | Unidad: {unidad} | IGV: {igv} | ID: {id_producto}")
+        print(
+            f"Producto seleccionado: {nombre} | Precio: {precio} | Unidad: {unidad} | IGV: {igv} | ID: {id_producto}"
+        )
 
 
 if __name__ == "__main__":

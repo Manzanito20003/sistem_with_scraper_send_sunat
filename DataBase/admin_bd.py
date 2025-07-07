@@ -1,6 +1,9 @@
 import sqlite3
 import sys
-db_path="./billing_system.db"
+
+db_path = "./billing_system.db"
+
+
 def modo_consola_sqlite():
     print(f"[MODO ADMIN] Consola interactiva SQLite abierta: {db_path}")
     conn = sqlite3.connect(db_path)

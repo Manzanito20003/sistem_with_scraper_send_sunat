@@ -1,10 +1,16 @@
-
 import logging
 
 from PyQt5.QtCore import QDate
 from PyQt5.QtGui import QIntValidator
-from PyQt5.QtWidgets import QGroupBox, QGridLayout, QLineEdit, QDateEdit, QLabel, QWidget, QVBoxLayout
-
+from PyQt5.QtWidgets import (
+    QGroupBox,
+    QGridLayout,
+    QLineEdit,
+    QDateEdit,
+    QLabel,
+    QWidget,
+    QVBoxLayout,
+)
 
 
 class ClienteView(QWidget):
@@ -17,11 +23,12 @@ class ClienteView(QWidget):
         self.nombre_entry = None
         self.ruc_cliente = None
         self.fecha_entry = None
-        self.id_cliente_sugerido= None
+        self.id_cliente_sugerido = None
 
         self.initUI()
 
         self.data = {}
+
     def validate(self):
         """Valida los campos del formulario de cliente."""
         if self.parent.tipo_documento_combo.currentText() == "Factura":
@@ -70,7 +77,6 @@ class ClienteView(QWidget):
         main_layout.addWidget(cliente_box)
         self.setLayout(main_layout)
 
-
     def actualizar_tipo_documento(self):
         """Cambia automáticamente el tipo de documento a 'Factura' si se ingresa un RUC."""
         if self.ruc_cliente.text().strip():
@@ -78,24 +84,25 @@ class ClienteView(QWidget):
         else:
             self.parent.tipo_documento_combo.setCurrentText("Boleta")
 
-
     def fill_form_client(self, cliente_data):
         try:
             self.num_doc_entry.setText(cliente_data.get("dni", ""))
             self.nombre_entry.setText(cliente_data.get("cliente", ""))
             self.ruc_cliente.setText(cliente_data.get("ruc", ""))
 
-            fecha_str=cliente_data.get("fecha","")
+            fecha_str = cliente_data.get("fecha", "")
             fecha_qdate = QDate.fromString(fecha_str, "dd/MM/yyyy")
             self.fecha_entry.setDate(fecha_qdate)
         except Exception as e:
-            logging.error(f"No se pudieron cargar los datos del cliente: {e}", exc_info=True)
+            logging.error(
+                f"No se pudieron cargar los datos del cliente: {e}", exc_info=True
+            )
 
     def obtener_datos_cliente(self):
         """Obtiene los datos del cliente ingresados en el formulario."""
-        self.data['nombre'] = self.nombre_entry.text()
-        self.data['dni'] = self.num_doc_entry.text()
-        self.data['ruc'] = self.ruc_cliente.text()
+        self.data["nombre"] = self.nombre_entry.text()
+        self.data["dni"] = self.num_doc_entry.text()
+        self.data["ruc"] = self.ruc_cliente.text()
         self.data["fecha"] = self.fecha_entry.date().toString("dd/MM/yyyy")
 
         return self.data

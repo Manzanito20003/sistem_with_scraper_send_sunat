@@ -23,14 +23,18 @@ def process_image_to_json(image_path):
         print(f"Imagen '{image_path}' abierta correctamente.")
 
         # Subir la imagen a través de la API de Gemini
-        uploaded_file = genai.upload_file(path=image_path, display_name=os.path.basename(image_path))
-        print(f"Archivo subido '{uploaded_file.display_name}' con URI: {uploaded_file.uri}")
+        uploaded_file = genai.upload_file(
+            path=image_path, display_name=os.path.basename(image_path)
+        )
+        print(
+            f"Archivo subido '{uploaded_file.display_name}' con URI: {uploaded_file.uri}"
+        )
 
         # Seleccionar un modelo Gemini gratuito (reemplazado)
         model = genai.GenerativeModel(model_name="gemini-2.0-flash")
 
         # Crear el prompt con la estructura JSON que esperas
-        prompt = '''
+        prompt = """
         Convierte la información de la imagen proporcionada en un JSON con la siguiente estructura con tipo UTF-8:
         {
             "cliente":{
@@ -53,7 +57,7 @@ def process_image_to_json(image_path):
             "total": X.XX (total a pagar por el cliente  tipo FLOAT)
         }
         Utiliza los valores exactos de la imagen para cada campo y coloca un valor vacío segun tipo de dato  (no uses None , int => 0 ,string="") corresponda en los campos opcionales si no están presentes,ademas pasa a mayuscual los datos.
-        '''
+        """
 
         # Realizar la solicitud al modelo con la imagen y el prompt
         response = model.generate_content([uploaded_file, prompt])
@@ -64,7 +68,7 @@ def process_image_to_json(image_path):
 
         # Intentar convertir la respuesta en un objeto JSON
         try:
-            python_obj = json.loads(cleaned_text) # convierte de str a dict
+            python_obj = json.loads(cleaned_text)  # convierte de str a dict
             print("Objeto JSON convertido exitosamente:")
             print(python_obj)
 
@@ -76,7 +80,5 @@ def process_image_to_json(image_path):
     except Exception as e:
         print(f"Error al procesar la imagen: {e}")
 
-
-    #data={"cliente":{'fecha': '14/03/25', 'cliente': 'JEFERSSON', 'dni': '75276980', 'ruc': '10752769805'}, 'productos': [{'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVENA ', 'precio_base': 6.0, 'Igv': 0, 'precio_total': 12.0},{'cantidad': 5, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'CANCHA MONTANA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 23.0}, {'cantidad': 4, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVP RUMBA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 18.4}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'MORON ENT', 'precio_base': 3.8, 'Igv': 0, 'precio_total': 7.6}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'PARDINA', 'precio_base': 6.2, 'Igv': 0, 'precio_total': 12.4}], 'total': 153.1}
-    #return json.dumps(data, indent=4)
-
+    # data={"cliente":{'fecha': '14/03/25', 'cliente': 'JEFERSSON', 'dni': '75276980', 'ruc': '10752769805'}, 'productos': [{'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVENA ', 'precio_base': 6.0, 'Igv': 0, 'precio_total': 12.0},{'cantidad': 5, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'CANCHA MONTANA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 23.0}, {'cantidad': 4, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVP RUMBA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 18.4}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'MORON ENT', 'precio_base': 3.8, 'Igv': 0, 'precio_total': 7.6}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'PARDINA', 'precio_base': 6.2, 'Igv': 0, 'precio_total': 12.4}], 'total': 153.1}
+    # return json.dumps(data, indent=4)

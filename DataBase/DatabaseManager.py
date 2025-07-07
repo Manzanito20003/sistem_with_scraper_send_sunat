@@ -11,7 +11,7 @@ class DatabaseManager:
     def __init__(self, db_path=None):
         if db_path is None:
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(base_dir, 'billing_system.db')
+            db_path = os.path.join(base_dir, "billing_system.db")
         self.conn = sqlite3.connect(db_path)
         self.cursor = self.conn.cursor()
 
@@ -23,7 +23,8 @@ class DatabaseManager:
 
     def create_tables(self):
         """Crea todas las tablas necesarias en la base de datos."""
-        self.cursor.executescript("""
+        self.cursor.executescript(
+            """
         -- Tabla de Remitentes
         CREATE TABLE IF NOT EXISTS sender (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +78,8 @@ class DatabaseManager:
             FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
             FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
         );
-        """)
+        """
+        )
         self.conn.commit()
 
     # ===============================
@@ -86,58 +88,79 @@ class DatabaseManager:
 
     def insert_sender(self, name, ruc, user, password):
         """Inserta un nuevo remitente."""
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             INSERT INTO sender (name, ruc, user, password)
             VALUES (?, ?, ?, ?)
-        """, (name, ruc, user, password))
+        """,
+            (name, ruc, user, password),
+        )
         self.conn.commit()
 
     def insert_client(self, name, dni, ruc):
         """Inserta un nuevo cliente o devuelve ID si ya existe."""
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             SELECT id FROM clients WHERE name = ? OR dni = ? OR ruc = ?
-        """, (name, dni, ruc))
+        """,
+            (name, dni, ruc),
+        )
         existing_client = self.cursor.fetchone()
         if existing_client:
             return existing_client[0]
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             INSERT INTO clients (name, dni, ruc)
             VALUES (?, ?, ?)
-        """, (name, dni, ruc))
+        """,
+            (name, dni, ruc),
+        )
         self.conn.commit()
         return self.cursor.lastrowid
 
     def insert_product(self, id_sender, name, unit, price, igv):
         """Inserta un producto para un remitente."""
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             SELECT id FROM products
             WHERE id_sender = ? AND name = ? AND unit = ? AND price = ? AND igv = ?
-        """, (id_sender, name, unit, price, igv))
+        """,
+            (id_sender, name, unit, price, igv),
+        )
         existing_product = self.cursor.fetchone()
         if existing_product:
             return existing_product[0]
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             INSERT INTO products (id_sender, name, unit, price, igv)
             VALUES (?, ?, ?, ?, ?)
-        """, (id_sender, name, unit, price, igv))
+        """,
+            (id_sender, name, unit, price, igv),
+        )
         self.conn.commit()
         return self.cursor.lastrowid
 
     def insert_invoice(self, client_id, sender_id, total, igv):
         """Inserta una nueva boleta."""
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             INSERT INTO invoices (client_id, sender_id, total, igv)
             VALUES (?, ?, ?, ?)
-        """, (client_id, sender_id, total, igv))
+        """,
+            (client_id, sender_id, total, igv),
+        )
         self.conn.commit()
         return self.cursor.lastrowid
 
     def insert_invoice_detail(self, invoice_id, product_id, quantity, subtotal):
         """Inserta un detalle de boleta."""
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             INSERT INTO invoice_details (invoice_id, product_id, quantity, subtotal)
             VALUES (?, ?, ?, ?)
-        """, (invoice_id, product_id, quantity, subtotal))
+        """,
+            (invoice_id, product_id, quantity, subtotal),
+        )
         self.conn.commit()
 
     # ===============================
@@ -157,12 +180,14 @@ class DatabaseManager:
         return self.cursor.fetchall()
 
     def get_invoices(self):
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             SELECT invoices.id, clients.name, sender.name, invoices.total, invoices.igv,invoices.date
             FROM invoices
             JOIN clients ON invoices.client_id = clients.id
             JOIN sender ON invoices.sender_id = sender.id
-        """)
+        """
+        )
         return self.cursor.fetchall()
 
     def get_sender_by_id(self, id_sender):
@@ -170,31 +195,40 @@ class DatabaseManager:
         return self.cursor.fetchone()
 
     def get_next_invoice_number(self, sender_id):
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             SELECT COUNT(*) FROM invoices WHERE sender_id = ?
-        """, (sender_id,))
+        """,
+            (sender_id,),
+        )
 
         count = self.cursor.fetchone()[0]
         return count + 1
 
     def delete_all_data(self):
         """Borra todos los registros de todas las tablas (para test)."""
-        self.cursor.executescript("""
+        self.cursor.executescript(
+            """
             DELETE FROM invoice_details;
             DELETE FROM invoices;
             DELETE FROM products;
             DELETE FROM clients;
             DELETE FROM sender;
             DELETE FROM sqlite_sequence;
-        """)
+        """
+        )
         self.conn.commit()
-    def get_invoice_details(self,invoice_id):
+
+    def get_invoice_details(self, invoice_id):
         """Obtiene los detalles de una boleta específica."""
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             SELECT *
             FROM invoice_details
             WHERE invoice_details.invoice_id = ?
-        """, (invoice_id,))
+        """,
+            (invoice_id,),
+        )
         return self.cursor.fetchall()
 
     # ===============================
@@ -203,44 +237,60 @@ class DatabaseManager:
     def delete_sender(self, id_sender):
         self.cursor.execute("DELETE FROM sender WHERE id = ?", (id_sender,))
         self.conn.commit()
+
     def delete_client(self, id_client):
         self.cursor.execute("DELETE FROM clients WHERE id = ?", (id_client,))
         self.conn.commit()
+
     def delete_product(self, id_product):
         self.cursor.execute("DELETE FROM products WHERE id = ?", (id_product,))
         self.conn.commit()
+
     def delete_invoice(self, id_invoice):
         self.cursor.execute("DELETE FROM invoices WHERE id = ?", (id_invoice,))
         self.conn.commit()
+
     def delete_invoice_detail(self, id_invoice_detail):
-        self.cursor.execute("DELETE FROM invoice_details WHERE id = ?", (id_invoice_detail,))
+        self.cursor.execute(
+            "DELETE FROM invoice_details WHERE id = ?", (id_invoice_detail,)
+        )
         self.conn.commit()
 
     # ===============================
     # Métodos de update
     # ===============================
     def update_sender(self, id_sender, name, ruc, user, password):
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             UPDATE sender
             SET name = ?, ruc = ?, user = ?, password = ?
             WHERE id = ?
-        """, (name, ruc, user, password, id_sender))
+        """,
+            (name, ruc, user, password, id_sender),
+        )
         self.conn.commit()
+
     def update_client(self, id_client, name, dni, ruc):
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             UPDATE clients
             SET name = ?, dni = ?, ruc = ?
             WHERE id = ?
-        """, (name, dni, ruc, id_client))
+        """,
+            (name, dni, ruc, id_client),
+        )
         self.conn.commit()
+
     def update_product(self, id_product, id_sender, name, unit, price, igv):
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             UPDATE products
             SET id_sender = ?, name = ?, unit = ?, price = ?, igv = ?
             WHERE id = ?
-        """, (id_sender, name, unit, price, igv, id_product))
+        """,
+            (id_sender, name, unit, price, igv, id_product),
+        )
         self.conn.commit()
-
 
     def match_product_fuzzy(self, search_term):
         """
@@ -259,7 +309,9 @@ class DatabaseManager:
         exact_matches = self.cursor.fetchall()
 
         if exact_matches:
-            return [(row[0], row[1], row[2], row[3], row[4], 100) for row in exact_matches]
+            return [
+                (row[0], row[1], row[2], row[3], row[4], 100) for row in exact_matches
+            ]
 
         # 🔹 2️⃣ Obtener todos los productos disponibles en la BD
         self.cursor.execute("SELECT id, name, unit, price, igv FROM products")
@@ -274,12 +326,14 @@ class DatabaseManager:
                 product_names,
                 scorer=fuzz.partial_ratio,
                 limit=5,
-                score_cutoff=70
+                score_cutoff=70,
             )
 
             for name, score, index in results:
                 product = products[index]
-                matches_with_confidence.append((*product, score))  # Agrega el score al final
+                matches_with_confidence.append(
+                    (*product, score)
+                )  # Agrega el score al final
 
         # 🔹 4️⃣ Retornar los mejores 3 resultados (ordenados por confianza)
         return sorted(matches_with_confidence, key=lambda x: x[5], reverse=True)[:3]

@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import List, Optional, Literal
 from datetime import datetime
 
+
 class Cliente(BaseModel):
     nombre: Optional[str]
     dni: Optional[str] = Field(None, max_length=8)
@@ -12,6 +13,7 @@ class Cliente(BaseModel):
         if not self.dni and not self.ruc:
             raise ValueError("Debe ingresar DNI o RUC.")
         return self
+
 
 class Producto(BaseModel):
     cantidad: int = Field(..., gt=0)
@@ -28,6 +30,7 @@ class Producto(BaseModel):
         if v < 0:
             raise ValueError("Los valores monetarios deben ser positivos.")
         return v
+
 
 class Resumen(BaseModel):
     serie: str
@@ -52,6 +55,7 @@ class Resumen(BaseModel):
         if v < 0:
             raise ValueError("Los valores totales de la boleta deben ser positivos")
         return v
+
 
 class BoletaData(BaseModel):
     cliente: Cliente

@@ -1,17 +1,26 @@
-# Standard
+"""UI principal para el manejo de los componenetes y vistas"""
+
 import json
 import logging
 
 # Third-party
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (
-    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QFileDialog, QGroupBox, QDialog, QMessageBox, QComboBox
+    QWidget,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFileDialog,
+    QGroupBox,
+    QDialog,
+    QMessageBox,
+    QComboBox,
 )
 
 # App-specific
-from Backend.BoletaController import BoletaController, BoletaWorker
+from Backend.BoletaController import BoletaController
 from Backend.img_to_json import process_image_to_json
 from DataBase.DatabaseManager import DatabaseManager
 from Frontend.cliente_view import ClienteView
@@ -23,20 +32,21 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",  # Format log
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-
-    ]
+    handlers=[logging.FileHandler("app.log"), logging.StreamHandler()],
 )
-from PyQt5.QtCore import QThread, pyqtSignal
-
 
 
 class BoletaApp(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.img_label = None
+        self.img_button = None
+        self.borrar_button = None
+        self.remitente_label = None
+        self.enviar_button = None
+        self.productos_disponibles = None
+        self.selected_remitente = None
         self.db = DatabaseManager()
         self.controller = BoletaController(self.db)
 
@@ -45,11 +55,14 @@ class BoletaApp(QWidget):
         self.selected_remitente_id = None
         self.actualizar_tipo_documento = None
 
-        self.product_view = ProductView(self, )
+        self.product_view = ProductView(
+            self,
+        )
         self.cliente_view = ClienteView(self, self.tipo_documento_combo)
         self.resumen_view = ResumenView(db=self.db)
 
         self.initUI()
+
     def initUI(self):
         main_layout = QHBoxLayout()
 
@@ -58,11 +71,13 @@ class BoletaApp(QWidget):
 
         # Sección de Imagen
         self.img_label = QLabel(self)
-        self.img_label.setPixmap(QPixmap("camera_icon.png").scaled(300, 300, Qt.KeepAspectRatio))
+        self.img_label.setPixmap(
+            QPixmap("camera_icon.png").scaled(300, 300, Qt.KeepAspectRatio)
+        )
         self.img_label.setAlignment(Qt.AlignCenter)
         self.img_button = QPushButton("Subir Imagen", self)
-        self.img_button.clicked.connect(self.subir_imagen)  # Ahora se asocia correctamente a la instancia
-
+        # Ahora se asocia correctamente a la instancia
+        self.img_button.clicked.connect(self.subir_imagen)
 
         left_frame.addWidget(self.img_label)
         left_frame.addWidget(self.img_button)
@@ -76,9 +91,15 @@ class BoletaApp(QWidget):
         # Botón de Borrar Todo
         self.borrar_button = QPushButton("Borrar Todo", self)
         self.borrar_button.setStyleSheet(
-            "background-color: red; color: white; font-size: 12px; padding: 12px; border-radius: 5px; size: 5px;")
-        self.borrar_button.clicked.connect(self.clean_all)  # Conectamos la función de borrar todo
-
+            "background-color: red; "
+            "color: white; "
+            "font-size: 12px; "
+            "padding: 12px; "
+            "border-radius: 5px; size: 5px;"
+        )
+        self.borrar_button.clicked.connect(
+            self.clean_all
+        )  # Conectamos la función de borrar todo
 
         left_frame.addWidget(self.borrar_button)  # Agregar el botón al layout izquierdo
         tipo_label = QLabel("Tipo de documento:")
@@ -87,15 +108,15 @@ class BoletaApp(QWidget):
 
         self.tipo_documento_combo.currentTextChanged.connect(
             lambda current_texto: self.resumen_view.actualizar_serie_y_numero(
-                self.selected_remitente_id,
-                current_texto
+                self.selected_remitente_id, current_texto
             )
         )
 
         self.remitente_label = QLabel("Remitente: Ninguno")
-        self.remitente_label.setWordWrap(True)  # Permite que el texto se divida en varias líneas
-        self.remitente_label.setFixedWidth(150)  # Ajusta el ancho máximo del QLabel (cámbialo según tu UI)
-
+        self.remitente_label.setWordWrap(
+            True
+        )  # Permite que el texto se divida en varias líneas
+        self.remitente_label.setFixedWidth(150)  # ajustar el ancho maximo
 
         remitente_button = QPushButton("Seleccionar Remitente")
         remitente_button.clicked.connect(self.abrir_seleccion_remitente)
@@ -125,7 +146,12 @@ class BoletaApp(QWidget):
         # Botón de Envío
         self.enviar_button = QPushButton("Emitir", self)
         self.enviar_button.setStyleSheet(
-            "background-color: green; color: white; font-size: 14px; padding: 12px; border-radius: 5px;")
+            "background-color: green; "
+            "color: white; "
+            "font-size: 14px; "
+            "padding: 12px; "
+            "border-radius: 5px;"
+        )
         self.enviar_button.setMinimumHeight(40)
         self.enviar_button.clicked.connect(lambda: self.procesar_boleta())
         right_frame.addWidget(self.enviar_button)
@@ -134,8 +160,9 @@ class BoletaApp(QWidget):
         self.setLayout(main_layout)
         self.setWindowTitle("Resumen de Boleta")
         self.resize(1200, 600)
+
     def subir_imagen(self):
-        """aqui se sube la imagen y se procesa con AI """
+        """Aqui se sube la imagen y se procesa con AI"""
         logging.info(" Iniciando función subir_imagen...")
         try:
             # Selección de archivo
@@ -143,21 +170,21 @@ class BoletaApp(QWidget):
 
             if not file_path:
                 logging.warning(" No se seleccionó ningún archivo.")
-                QMessageBox.critical("Fallo la eleccion de img.")
+                QMessageBox.critical("Fallo la eleccion de imagen.")
                 return
 
-            data= process_image_to_json(file_path)  # Procesar la imagen
+            data = process_image_to_json(file_path)  # Procesar la imagen
             data = json.loads(data)
             self.cargar_datos_img(data)  # Cargar los datos en la vista
             # Mostrar imagen (si lo deseas)
             self.display_image(file_path)
-
 
             logging.info("Imagen procesada y datos cargados correctamente.")
 
         except Exception as e:
             logging.error(f"Error inesperado al procesar la imagen: {e}", exc_info=True)
             QMessageBox.critical(self, "Error", f"Ocurrió un error inesperado:\n{e}")
+
     def cargar_datos_img(self, data):
         # Extraer y registrar contenido
         cliente_data = data["cliente"]
@@ -169,26 +196,34 @@ class BoletaApp(QWidget):
     def cargar_productos(self):
         """Carga todos los productos desde la base de datos al iniciar la app."""
         try:
-            self.productos_disponibles = self.db.get_products()  # Lista de tuplas (id, nombre, unidad, precio)
-            logging.info(f"Se cargaron {len(self.productos_disponibles)} productos en memoria.")
+            # Lista de tuplas (id, nombre, unidad, precio)
+            self.productos_disponibles = self.db.get_products()
+            logging.info(
+                f"Se cargaron {len(self.productos_disponibles)} productos en memoria."
+            )
         except Exception as e:
             logging.error(f"[ERROR] No se pudieron cargar los productos: {e}")
             self.productos_disponibles = []
-            QMessageBox.critical(self, "Error", f"No se pudieron cargar los productos: {e}")
-
+            QMessageBox.critical(
+                self, "Error", f"No se pudieron cargar los productos: {e}"
+            )
 
     def procesar_boleta(self):
         logging.info("Procesando boleta...")
 
-        ok,msg= self.controller.validar_envio(self.selected_remitente_id, self.cliente_view)
+        ok, msg = self.controller.validar_envio(
+            self.selected_remitente_id, self.cliente_view
+        )
 
         if not ok:
-            QMessageBox.warning(None,"Error",msg)
+            QMessageBox.warning(None, "Error", msg)
 
         boleta_data = self.controller.armar_boleta_data(
-            self.cliente_view, self.product_view, self.resumen_view,
+            self.cliente_view,
+            self.product_view,
+            self.resumen_view,
             self.selected_remitente_id,
-            self.tipo_documento_combo.currentText()
+            self.tipo_documento_combo.currentText(),
         )
 
         logging.info(f"Datos actualizados de boleta: {boleta_data}")
@@ -196,6 +231,7 @@ class BoletaApp(QWidget):
         self.enviar_button.setEnabled(False)
         self.controller.emitir_boleta(boleta_data)
         print("enviado")
+
     def display_image(self, file_path):
         """Muestra la imagen seleccionada en la interfaz."""
         pixmap = QPixmap(file_path).scaled(300, 300, Qt.KeepAspectRatio)
@@ -203,23 +239,31 @@ class BoletaApp(QWidget):
 
     def abrir_seleccion_remitente(self):
         logging.info(" Abriendo selector de remitente...")
-        dialog = RemitenteDialog(self,self.db)
+        dialog = RemitenteDialog(self, self.db)
         if dialog.exec_() == QDialog.Accepted:
             logging.info(" Remitente seleccionado correctamente.")
 
-            if hasattr(dialog, 'selected_remitente') and hasattr(dialog, 'selected_remitente_id'):
+            if hasattr(dialog, "selected_remitente") and hasattr(
+                dialog, "selected_remitente_id"
+            ):
                 self.selected_remitente = dialog.selected_remitente
                 self.selected_remitente_id = dialog.selected_remitente_id
 
-                logging.info(f" Nombre Remitente: {self.selected_remitente}, ID: {self.selected_remitente_id}")
+                logging.info(
+                    f" Nombre Remitente: {self.selected_remitente},"
+                    f" ID: {self.selected_remitente_id}"
+                )
 
                 self.remitente_label.setText(f"Remitente: {self.selected_remitente}")
-
-                self.resumen_view.actualizar_serie_y_numero(self.selected_remitente_id, self.tipo_documento_combo.currentText())
+                self.resumen_view.actualizar_serie_y_numero(
+                    self.selected_remitente_id, self.tipo_documento_combo.currentText()
+                )
 
             else:
                 logging.error(" No se pudo obtener el remitente seleccionado.")
-                QMessageBox.warning(self, "Error", "No se pudo obtener el remitente seleccionado.")
+                QMessageBox.warning(
+                    self, "Error", "No se pudo obtener el remitente seleccionado."
+                )
         else:
             logging.warning(" El selector de remitente se cerró sin seleccionar.")
 
@@ -237,6 +281,7 @@ class BoletaApp(QWidget):
     def closeEvent(self, event):
         self.db.close()  # Cerra la conexión
         event.accept()
+
     def on_boleta_emitida(self):
         QMessageBox.information(self, "Éxito", "Boleta emitida correctamente")
         self.enviar_button.setEnabled(True)
@@ -244,6 +289,3 @@ class BoletaApp(QWidget):
     def on_boleta_error(self, mensaje):
         QMessageBox.critical(self, "Error", f"No se pudo emitir la boleta:\n{mensaje}")
         self.enviar_button.setEnabled(True)
-
-
-

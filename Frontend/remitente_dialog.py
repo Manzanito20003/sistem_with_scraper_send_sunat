@@ -2,11 +2,14 @@ import logging
 
 from PyQt5.QtWidgets import QMessageBox, QPushButton, QListWidget, QVBoxLayout, QDialog
 
+
 class RemitenteDialog(QDialog):
     """Ventana emergente para seleccionar un remitente con su ID."""
 
-    def __init__(self, parent=None,db=None):
+    def __init__(self, parent=None, db=None):
         super().__init__(parent)
+        self.selected_remitente = None
+        self.selected_remitente_id = None
         self.db = db
 
         self.setWindowTitle("Seleccionar Remitente")
@@ -58,10 +61,14 @@ class RemitenteDialog(QDialog):
             remitente_id = self.remitentes.get(nombre_seleccionado)
 
             # Depuración: Verificar si encontramos el ID
-            logging.info(f" Remitente seleccionado: {nombre_seleccionado}, ID: {remitente_id}")
+            logging.info(
+                f" Remitente seleccionado: {nombre_seleccionado}, ID: {remitente_id}"
+            )
 
             if remitente_id is None:
-                raise ValueError(f"No se encontró un ID para el remitente '{nombre_seleccionado}'.")
+                raise ValueError(
+                    f"No se encontró un ID para el remitente '{nombre_seleccionado}'."
+                )
 
             self.selected_remitente = nombre_seleccionado
             self.selected_remitente_id = remitente_id
