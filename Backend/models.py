@@ -10,8 +10,8 @@ class Cliente(BaseModel):
 
     @model_validator(mode="after")
     def al_menos_un_identificador(self):
-        if not self.dni and not self.ruc:
-            raise ValueError("Debe ingresar DNI o RUC.")
+        if not self.dni and not self.ruc and not self.nombre:
+            raise ValueError("Debe ingresar DNI o RUC o Nombre")
         return self
 
 
@@ -66,11 +66,11 @@ class BoletaData(BaseModel):
     id_cliente: str
     tipo_documento: Literal["BOLETA", "FACTURA"] = "BOLETA"
 
-    @field_validator("fecha")
+    @field_validator("fecha",mode="before")
     @classmethod
     def fecha_valida(cls, v):
         try:
             datetime.strptime(v, "%d/%m/%Y")
         except ValueError:
-            raise ValueError("La fecha debe tener el formato dd/mm/yyyy.")
+            raise ValueError(f"La fecha debe tener el formato dd/mm/yyyy. recibido")
         return v

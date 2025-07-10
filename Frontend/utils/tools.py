@@ -28,22 +28,13 @@ class AutComboBox(QComboBox):
         self.setFocus()
         self.setMinimumWidth(235)
 
-        # ️ Timer para hacer debounce
-        # self.debounce_timer = QTimer()
-        # self.debounce_timer.setSingleShot(True)
-        # self.debounce_timer.setInterval(500)  # 500 ms de espera
-        # self.debounce_timer.timeout.connect(self.on_editing_finished)
-        #
-        # #  Detectar cuando se edita el texto
-        # self.lineEdit().textEdited.connect(self.restart_debounce)
 
         # 🎯 Detectar selección de item
         self.activated.connect(self.on_item_selected)
 
     def showPopup(self):
         print("⚡ Desplegando la lista, aquí puedes cargar datos o actualizar")
-        # Puedes cargar las opciones aquí antes de mostrar el combo
-        # Por ejemplo:
+
         texto = self.currentText()
         self.clear()
         self.addItem(texto)

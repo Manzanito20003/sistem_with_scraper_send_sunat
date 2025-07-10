@@ -1,6 +1,7 @@
+"""Scraping de la pagina de Sunat para enviar una boleta con .json"""
+import logging
 import os
 import time
-from datetime import datetime
 
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -17,26 +18,12 @@ from DataBase.DatabaseManager import DatabaseManager
 
 db = DatabaseManager()
 
-import logging
-
 logging.getLogger("selenium").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-log_dir = os.path.join(os.path.dirname(__file__), "logs")
-os.makedirs(log_dir, exist_ok=True)  # Crea la carpeta si no existe
-
-log_file = os.path.join(log_dir, f"sunat_{datetime.today().date()}.log")
-
-# Configura logging
-logging.basicConfig(
-    filename=log_file,
-    filemode="a",
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-
 
 def slow_typing(element, text, delay=0.1):
+    """tipear lento para undected"""
     # for char in text:
     #     element.send_keys(char)
     #     time.sleep(delay)
@@ -46,15 +33,13 @@ def slow_typing(element, text, delay=0.1):
 def get_client(id):
     """Obtiene los datos del cliente desde DB"""
     sender = db.get_sender_by_id(id)
-
     logging.info(f"sende: {sender}")
     if sender:
         ruc = sender[2]
         user = sender[3]
         password = sender[4]
         return ruc, user, password
-    else:
-        return None, None, None
+
 
 
 # Función para agregar productos
@@ -132,7 +117,7 @@ def agregar_producto(driver, producto, tipo_documento):
 
         # verificar el ingresar igv antes ingresar preico base
         if igv == 0:
-            print("el producto no tiene efecto igv")
+            logging.debug(f"el producto :{descripcion}  -> no tiene efecto igv")
             # tiene efecto igv
             igv_wait = WebDriverWait(driver, 20).until(
                 EC.presence_of_element_located((By.ID, "item.subTipoTB01"))
@@ -220,7 +205,7 @@ def emitir_boleta(driver, data):
         logging.info(f"data recibida en emitir boleta: {data}")
         data_cliente = data["cliente"]
         # datos de cliente
-        fecha = data_cliente["fecha"]
+        fecha = data["fecha"]
         cliente = data_cliente["nombre"]
         dni = data_cliente["dni"]
 
@@ -263,9 +248,9 @@ def emitir_boleta(driver, data):
 
             WebDriverWait(driver, 20).until(
                 lambda d: d.find_element(By.ID, "inicio.razonSocial")
-                .get_attribute("value")
-                .strip()
-                != ""
+                          .get_attribute("value")
+                          .strip()
+                          != ""
             )
 
             razon_social = driver.find_element(
@@ -285,11 +270,14 @@ def emitir_boleta(driver, data):
 
         time.sleep(1)
 
+
         # continuar con el proceso de ingreso
         boton_continuar = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "inicio.botonGrabarDocumento_label"))
         )
         boton_continuar.click()
+        logging.info("Datos de cliente ingresados correctamente")
+
 
         input_fecha = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "boleta.fechaEmision"))
@@ -317,9 +305,7 @@ def emitir_factura(driver, data):
         logging.info("emitiendo Factura")
         # datos de cliente
         data_cliente = data["cliente"]
-        fecha = data_cliente["fecha"]
-        # cliente = data_cliente["cliente"] # no es necesario
-        # dni = data_cliente["dni"]   # no es necesario
+        fecha = data["fecha"]
         ruc = data_cliente["ruc"]
 
         # Buscar "factura" en el campo de búsqueda
@@ -355,9 +341,9 @@ def emitir_factura(driver, data):
         # Esperar a que el campo de razón social se llene automáticamente
         WebDriverWait(driver, 20).until(
             lambda d: d.find_element(By.ID, "inicio.razonSocial")
-            .get_attribute("value")
-            .strip()
-            != ""
+                      .get_attribute("value")
+                      .strip()
+                      != ""
         )
         razon_social = driver.find_element(By.ID, "inicio.razonSocial").get_attribute(
             "value"
@@ -365,7 +351,6 @@ def emitir_factura(driver, data):
 
         print(f"Razón Social detectada: {razon_social}")
 
-        time.sleep(1)
 
         # Seleccionar la dirección (ID corregido)
         add_direccion = WebDriverWait(driver, 20).until(
@@ -379,6 +364,7 @@ def emitir_factura(driver, data):
         )
         boton_continuar.click()
 
+        logging.info("Datos de cliente ingresados correctamente")
         # Ingresar la fecha de emisión
         input_fecha = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "factura.fechaEmision"))
@@ -389,7 +375,7 @@ def emitir_factura(driver, data):
         # Agregar productos
         for producto in data["productos"]:
             agregar_producto(driver, producto, tipo_documento="Factura")
-        print("Productos agregados correctamente.")
+        logging.info("Productos agregados correctamente.")
 
         # Validar importe total TODO: Revisar si es necesario
         total = data["resumen"]["total"]
@@ -424,26 +410,27 @@ def send_billing_sunat(data, sender_id=1):
     logging.info(f"   - Total: S/ {resumen.get('total', 0):.2f}")
 
     try:
-        driver = configurar_driver()  # Configurar e iniciar el driver
+        driver = configurar_driver(headless=False)  # Configurar e iniciar el driver
         iniciar_sesion(driver, sender_id)  # Iniciar sesión
         if data["tipo_documento"] == "BOLETA":
             emitir_boleta(driver, data)
         if data["tipo_documento"] == "FACTURA":
             emitir_factura(driver, data)
 
-        logging.info(f"{data['tipo_documento']}enviado correctamente a sunat")
+        logging.info(f"{data['tipo_documento']} enviado correctamente a sunat")
         # Tiempo para revisión manual si es necesario
         logging.debug(
             "Manteniendo navegador abierto por 900 segundos para revisión manual..."
         )
         time.sleep(900)
-
     except Exception as e:
         logging.error(
             f"Ocurrió un error durante el proceso de facturación en SUNAT: {e}"
         )
+        logging.info("-----Corrigiendo Manualmente-------------")
+        time.sleep(900)
     finally:
-        logging.info("[INFO] Finalizando proceso de emisión en SUNAT.")
+        logging.info("Finalizando proceso de emisión en SUNAT.")
         driver.quit()
 
 
@@ -455,65 +442,156 @@ def validate_importe_all(driver, total):
     :param total: Expected total as a string
     :return: True if the value matches the expected total, False otherwise
     """
+    global actual_value
     try:
         input_total = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.ID, "boleta.totalGeneral2"))
         )
-        actual_value = int(input_total.get_attribute("value"))
+        actual_value = float(input_total.get_attribute("value").replace("S/ ",""))
 
         # Compara el valor obtenido con el valor esperado
         if float(actual_value) == float(total):
             logging.info("El valor de la caja coincide con el total esperado.")
-            return True
-        else:
-            logging.error(
-                f"El valor de la caja ({actual_value}) no coincide con el total esperado ({total})."
-            )
-            return False
-
     except Exception as e:
-        logging.critical(f"Error al validar el valor: {e}")
-        return False
+        logging.critical(f"Error al validar el valor: {e}, {actual_value}!={total}")
 
 
 # Ejecutar el de prueba
 if __name__ == "__main__":
-    data = {
+    #BOLETA - SIN DNI
+    test_sin_dni = {
+        "cliente": {
+            "nombre": "CLIENTE SIN DOCUMENTO",
+            "dni": "",
+            "ruc": ""
+        },
+        "productos": [
+            {
+                "cantidad": 3.0,
+                "descripcion": "HARINA DE TRIGO",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 2.5,
+                "igv": 0.0,
+                "igv_total": 0.0,
+                "precio_total": 7.5
+            }
+        ],
+        "resumen": {
+            "serie": "B05-19",
+            "numero": "19",
+            "igv_total": 0.0,
+            "total": 7.5
+        },
+        "fecha": "09/07/2025",
+        "id_cliente": None,
+        "id_remitente": 5,
+        "tipo_documento": "BOLETA"
+    }
+
+    #BOLETA  - CON DNI
+    test_con_dni = {
         "cliente": {
             "nombre": "TONFAY COMPANY",
             "dni": "75276980",
-            "ruc": "",
-            "fecha": "03/07/2025",
+            "ruc": ""
         },
         "productos": [
             {
                 "cantidad": 2.0,
-                "descripcion": "",
+                "descripcion": "PRODUCTO 1",
                 "unidad_medida": "KILOGRAMO",
                 "precio_base": 32.0,
-                "Igv": 0,
-                "Total IGV": 0.0,
-                "precio_total": 64.0,
+                "igv": 0.0,
+                "igv_total": 0.0,
+                "precio_total": 64.0
             },
             {
                 "cantidad": 1.0,
-                "descripcion": "",
+                "descripcion": "PRODUCTO 2",
                 "unidad_medida": "KILOGRAMO",
                 "precio_base": 36.0,
-                "Igv": 0,
-                "Total IGV": 0.0,
-                "precio_total": 36.0,
-            },
+                "igv": 0.0,
+                "igv_total": 0.0,
+                "precio_total": 36.0
+            }
         ],
         "resumen": {
             "serie": "B05-18",
             "numero": "18",
             "igv_total": 0.0,
-            "total": 100.0,
+            "total": 100.0
         },
+        "fecha": "09/07/2025",
         "id_cliente": None,
         "id_remitente": 5,
-        "tipo_documento": "BOLETA",
+        "tipo_documento": "BOLETA"
     }
 
-    send_billing_sunat(data, sender_id=2)
+    #FACTURA - CON RUC
+    test_con_ruc={
+        "cliente": {
+            "nombre": "JEFERSSON",
+            "dni": "75276980",
+            "ruc": "10752769805"
+        },
+        "productos": [
+            {
+                "cantidad": 2.0,
+                "descripcion": "AVENA ",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 6.0,
+                "igv": 0,
+                "igv_total": 0.0,
+                "precio_total": 12.0
+            },
+            {
+                "cantidad": 5.0,
+                "descripcion": "CANCHA MONTANA",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 4.6,
+                "igv": 0,
+                "igv_total": 0.0,
+                "precio_total": 23.0
+            },
+            {
+                "cantidad": 4.0,
+                "descripcion": "AVP RUMBA",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 4.6,
+                "igv": 0,
+                "igv_total": 0.0,
+                "precio_total": 18.4
+            },
+            {
+                "cantidad": 2.0,
+                "descripcion": "MORON ENT",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 3.8,
+                "igv": 0,
+                "igv_total": 0.0,
+                "precio_total": 7.6
+            },
+            {
+                "cantidad": 2.0,
+                "descripcion": "PARDINA",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 6.2,
+                "igv": 0,
+                "igv_total": 0.0,
+                "precio_total": 12.4
+            }
+        ],
+        "resumen": {
+            "serie": "F05-24",
+            "numero": "24",
+            "sub_total": 73.4,
+            "igv_total": 0.0,
+            "total": 73.4
+        },
+        "fecha": "09/07/2025",
+        "id_cliente": None,
+        "id_remitente": "5",
+        "tipo_documento": "FACTURA"
+    }
+
+    send_billing_sunat(test_sin_dni, sender_id=2)

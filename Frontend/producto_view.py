@@ -1,6 +1,7 @@
 import json
 import logging
 
+from functools import partial
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QGroupBox,
@@ -13,7 +14,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
-from Frontend.tools import AutComboBox
+from Frontend.utils.tools import AutComboBox
 
 
 class ProductView(QWidget):
@@ -115,14 +116,11 @@ class ProductView(QWidget):
         self.actualizar_resumen()
 
     def fill_form_fields(self, data):
-        """Llena los campos del formulario con los datos del JSON."""
         logging.info(" Llenando campos de productos")
-
         if not data:
             logging.error(" No hay datos para llenar el formulario.")
             return
 
-        # Llenar tabla de productos
         productos = data
         self.productos_table.setRowCount(len(productos))
 
@@ -132,7 +130,6 @@ class ProductView(QWidget):
                 precio = producto.get("precio_base", 0)
                 precio_total = producto.get("precio_total", 0)
 
-                # segun la regla de negocio el cliente solo pasa la boleta con el precio total del producto  aveces con precio base
                 if precio == 0 and precio_total != 0:
                     precio = precio_total / cantidad if cantidad > 0 else 0
 
@@ -140,74 +137,44 @@ class ProductView(QWidget):
                 total_producto = cantidad * precio
                 igv_producto = total_producto * 0.18 if aplica_igv else 0
 
-                # 🔹 Crear el QComboBox para IGV
                 igv_combo = QComboBox()
                 igv_combo.addItems(["No", "Sí"])
                 igv_combo.setCurrentText("Sí" if aplica_igv else "No")
-                igv_combo.currentTextChanged.connect(
-                    lambda text, row=row: self.actualizar_igv_producto(row)
-                )
 
-                # crear el Qcombox para Unidad de medida
+                try:
+                    igv_combo.currentTextChanged.disconnect()
+                except TypeError:
+                    pass
+
+                igv_combo.currentTextChanged.connect(partial(self.actualizar_igv_producto, row))
+
                 unidad_combo = QComboBox()
                 unidad_combo.addItems(["CAJA", "KILOGRAMO", "BOLSA", "UNIDAD"])
                 unidad_combo.setCurrentText(producto.get("unidad_medida", "UNIDAD"))
 
-                self.productos_table.setItem(
-                    row, 0, QTableWidgetItem(str(cantidad))
-                )  # Cantidad
-                self.productos_table.setCellWidget(
-                    row, 1, unidad_combo
-                )  # Unidad Qcombobox
+                self.productos_table.setItem(row, 0, QTableWidgetItem(str(cantidad)))
+                self.productos_table.setCellWidget(row, 1, unidad_combo)
 
-                combo = AutComboBox(self, row=row)  # creamos
-
+                combo = AutComboBox(self, row=row)
                 combo.setEditText(producto.get("descripcion", ""))
-                self.productos_table.setCellWidget(
-                    row, 2, combo
-                )  # Coloca el combo como widget en la celda
+                self.productos_table.setCellWidget(row, 2, combo)
 
-                self.productos_table.setItem(
-                    row, 3, QTableWidgetItem(f"S/ {precio:.2f}")
-                )  # Precio
-                self.productos_table.setCellWidget(
-                    row, 4, igv_combo
-                )  # IGV con QComboBox
-                self.productos_table.setItem(
-                    row, 5, QTableWidgetItem(f"S/ {igv_producto:.2f}")
-                )  # Total IGV
-                self.productos_table.setItem(
-                    row, 6, QTableWidgetItem(f"S/ {total_producto:.2f}")
-                )  # Total Producto
-                # Agregar botón de borrar
-                self.agregar_boton_borrar(row)  # Agregar botón de borrar a la fila
-            # 🔹 Actualizar resumen
-            # self.actualizar_resumen()
+                self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))
+                self.productos_table.setCellWidget(row, 4, igv_combo)
+                self.productos_table.setItem(row, 5, QTableWidgetItem(f"S/ {igv_producto:.2f}"))
+                self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {total_producto:.2f}"))
+
+                self.agregar_boton_borrar(row)
+
         except Exception as e:
-            logging.error(
-                f"Ocurrió un problema al llenar los datos en la fila {row}: {e}"
-            )
-            logging.error(
-                f" Datos del producto problemático: {producto.get('descipcion')}"
-            )
+            logging.error(f"Ocurrió un problema al llenar los datos en la fila {row}: {e}")
+            logging.error(f" Datos del producto problemático: {producto.get('descripcion')}")
 
     def obtener_datos_producto(self):
         """Toma los valores actuales de los campos y los guarda en self.data"""
-        logging.info(" Actualizando datos...")
+        logging.info("Obteniendo datos de productos")
 
-        # 🔹 Evita intentar json.loads si self.data ya es un diccionario
-        if isinstance(self.data, str):
-            try:
-                self.data = json.loads(self.data)
-            except json.JSONDecodeError as e:
-                logging.error(" No se pudo decodificar JSON: {e}")
-                return
-
-        if not isinstance(self.data, dict):
-            logging.error(" self.data no es un diccionario válido.")
-            return
-
-        # 🔹 Actualizar productos desde la tabla
+        # Actualizar productos desde la tabla
         productos = []
         for row in range(self.productos_table.rowCount()):
             try:
@@ -259,19 +226,18 @@ class ProductView(QWidget):
                         else "UNIDAD"
                     ),
                     "precio_base": precio,
-                    "Igv": igv,
-                    "Total IGV": total_igv,
+                    "igv": igv,
+                    "igv_total": total_igv,
                     "precio_total": total_producto,
                 }
 
-                print("producto :", producto)
                 productos.append(producto)
 
             except ValueError as e:
                 logging.warning(f" Error al procesar fila {row}: {e}")
 
         self.data = productos
-
+        logging.info("Productos obtenidos correctamente")
         return self.data
 
     def actualizar_igv_producto(self, row: int) -> None:
@@ -293,9 +259,8 @@ class ProductView(QWidget):
         precio_base_item = self.productos_table.item(row, 3)  # Precio Base
         igv_combo = self.productos_table.cellWidget(
             row, 4
-        )  # Obtener el QComboBox de IGV
+        )
 
-        # Verificación de existencia
         if not cantidad_item:
             logging.error(
                 f"[ERROR] No se encontró la celda de cantidad en la fila {row}."
@@ -530,34 +495,33 @@ class ProductView(QWidget):
         fila = self.productos_table.rowCount()
         self.productos_table.insertRow(fila)
 
-        # Cantidad default 1
-        self.productos_table.setItem(fila, 0, QTableWidgetItem("1"))
+        self.productos_table.setItem(fila, 0, QTableWidgetItem("1"))  # Cantidad default
 
-        # Unidad QComboBox
         unidad_combo = QComboBox()
         unidad_combo.addItems(["CAJA", "KILOGRAMO", "BOLSA", "UNIDAD"])
         self.productos_table.setCellWidget(fila, 1, unidad_combo)
 
-        # Descripción vacía (editable)
-        combo = AutComboBox(self, row=fila)  # Crear el AutComboBox
+        combo = AutComboBox(self, row=fila)
         combo.setEditText("")
-
         self.productos_table.setCellWidget(fila, 2, combo)
-        # Precio base 0
-        self.productos_table.setItem(fila, 3, QTableWidgetItem("S/ 0.00"))
 
-        # IGV por defecto "No"
+        self.productos_table.setItem(fila, 3, QTableWidgetItem("S/ 0.00"))  # Precio base
+
         igv_combo = QComboBox()
         igv_combo.addItems(["No", "Sí"])
-        self.productos_table.setCellWidget(fila, 4, igv_combo)
-        igv_combo.currentTextChanged.connect(
-            lambda text, row=fila: self.actualizar_igv_producto(row)
-        )
 
-        # Total IGV y total producto en 0
-        self.productos_table.setItem(fila, 5, QTableWidgetItem("S/ 0.00"))
-        self.productos_table.setItem(fila, 6, QTableWidgetItem("S/ 0.00"))
-        # Agregar botón de borrar
+        # Desconectar cualquier conexión previa (por seguridad)
+        try:
+            igv_combo.currentTextChanged.disconnect()
+        except TypeError:
+            pass
+
+        igv_combo.currentTextChanged.connect(partial(self.actualizar_igv_producto, fila))
+        self.productos_table.setCellWidget(fila, 4, igv_combo)
+
+        self.productos_table.setItem(fila, 5, QTableWidgetItem("S/ 0.00"))  # Total IGV
+        self.productos_table.setItem(fila, 6, QTableWidgetItem("S/ 0.00"))  # Total
+
         self.agregar_boton_borrar(fila)
 
     def agregar_boton_borrar(self, row):

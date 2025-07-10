@@ -1,10 +1,28 @@
 """ "Archivo principal que lanza la aplicación de boletas con PyQt5."""
-
+from datetime import datetime
+import logging
 import sys
+import os
 
 from PyQt5.QtWidgets import QApplication
 from Frontend.ui_main import BoletaApp
 from DataBase.admin_bd import modo_consola_sqlite
+
+
+log_dir = os.path.join(os.path.dirname(__file__), "logs")
+os.makedirs(log_dir, exist_ok=True)
+
+log_file = os.path.join(log_dir, f"boletas_{datetime.today().date()}.log")
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(log_file, encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
 
 
 def main():

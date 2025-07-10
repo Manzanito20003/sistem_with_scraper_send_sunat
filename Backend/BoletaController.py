@@ -1,11 +1,8 @@
 import logging
 
-from PyQt5.QtCore import QThread, pyqtSignal
-from PyQt5.QtWidgets import QMessageBox
-
-from Backend.models import BoletaData
 from pydantic import ValidationError
 
+from Backend.models import BoletaData
 from Scraping.scraper_sunat import send_billing_sunat
 
 
@@ -14,9 +11,11 @@ class BoletaController:
     def __init__(self, db):
         self.db = db
 
-    def emitir_boleta(self, boleta_data: dict) -> bool:
+    def emitir_boleta(self, boleta_data) -> bool:
         try:
+            logging.info("Iniciando validación de boleta...")
             boleta_data = BoletaData(**boleta_data)
+            logging.info("Boleta data validada correctamente.")
         except ValidationError as e:
             logging.error(f"validacion fallida de boleta{e}")
             return False
@@ -37,18 +36,19 @@ class BoletaController:
         return True, ""
 
     def armar_boleta_data(
-        self,
-        cliente_view,
-        product_view,
-        resumen_view,
-        selected_remitente_id,
-        tipo_documento_combo,
+            self,
+            cliente_view,
+            product_view,
+            resumen_view,
+            selected_remitente_id,
+            tipo_documento_combo,
     ):
-
+        logging.info("Armar datos de la Boleta...")
         data_cliente = cliente_view.obtener_datos_cliente()
         data_producto = product_view.obtener_datos_producto()
         data_resumen = resumen_view.obtener_datos_resumen()
-
+        logging.debug(
+            f"Datos de boleta: {data_cliente, data_producto, data_resumen, selected_remitente_id, tipo_documento_combo}")
         if data_producto is None:
             logging.error("No hay productos en la boleta.")
             raise ValueError("Faltan productos en la boleta.")
@@ -64,9 +64,10 @@ class BoletaController:
             "cliente": data_cliente,
             "productos": data_producto,
             "resumen": data_resumen,
-            "id_cliente": cliente_view.id_cliente_sugerido,
-            "id_remitente": selected_remitente_id,
-            "tipo_documento": tipo_documento_combo,
+            "fecha": cliente_view.obtener_fecha(),
+            "id_cliente": str(cliente_view.id_cliente_sugerido),
+            "id_remitente": str(selected_remitente_id),
+            "tipo_documento": tipo_documento_combo.upper(),
         }
 
     def enviar_boleta(self, data):
@@ -79,6 +80,7 @@ class BoletaController:
         logging.info(f"ID del remitente: {id_sender}")
 
         try:
+            logging.debug("sunat data")
             send_billing_sunat(data, id_sender)
             logging.info("Boleta enviada a SUNAT correctamente.")
         except Exception as e:
@@ -103,7 +105,6 @@ class BoletaController:
             f"Total Boleta: S/ {total_pagado:.2f}, Total IGV: S/ {igv_total:.2f}"
         )
 
-        # 🔹 Insertar productos en la BD
         try:
             for producto in data["productos"]:
                 self.db.insert_product(
@@ -122,23 +123,3 @@ class BoletaController:
                 f"No se pudo completar la inserción de productos o la boleta. Detalle: {e}"
             )
             return
-
-
-class BoletaWorker(QThread):
-    finished = pyqtSignal()
-    error = pyqtSignal(str)
-
-    def __init__(self, boleta_data, controller):
-        super().__init__()
-        self.boleta_data = boleta_data
-        self.controller = controller
-
-    def run(self):
-        try:
-            success = self.controller.emitir_boleta(self.boleta_data)
-            if success:
-                self.finished.emit()
-            else:
-                self.error.emit("Falló la validación de la boleta.")
-        except Exception as e:
-            self.error.emit(str(e))

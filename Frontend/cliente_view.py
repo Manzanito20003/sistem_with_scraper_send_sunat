@@ -1,3 +1,4 @@
+"""Declaracion de la Vista Cliente"""
 import logging
 
 from PyQt5.QtCore import QDate
@@ -14,6 +15,8 @@ from PyQt5.QtWidgets import (
 
 
 class ClienteView(QWidget):
+    """Clase Vista del cliente para poder ser unido con la interfaz principal"""
+
     def __init__(self, parent=None, tipo_documento_combo=None):
         super().__init__()
         self.parent = parent
@@ -27,8 +30,6 @@ class ClienteView(QWidget):
 
         self.initUI()
 
-        self.data = {}
-
     def validate(self):
         """Valida los campos del formulario de cliente."""
         if self.parent.tipo_documento_combo.currentText() == "Factura":
@@ -38,6 +39,7 @@ class ClienteView(QWidget):
         return True, ""
 
     def initUI(self):
+        """Iniciar UI de la parte del Cliente"""
         # Grupo visual de cliente
         cliente_box = QGroupBox("Cliente")
         cliente_layout = QGridLayout()
@@ -85,6 +87,7 @@ class ClienteView(QWidget):
             self.parent.tipo_documento_combo.setCurrentText("Boleta")
 
     def fill_form_client(self, cliente_data):
+        """Llenado de los datos del cliente """
         try:
             self.num_doc_entry.setText(cliente_data.get("dni", ""))
             self.nombre_entry.setText(cliente_data.get("cliente", ""))
@@ -99,13 +102,15 @@ class ClienteView(QWidget):
             )
 
     def obtener_datos_cliente(self):
-        """Obtiene los datos del cliente ingresados en el formulario."""
-        self.data["nombre"] = self.nombre_entry.text()
-        self.data["dni"] = self.num_doc_entry.text()
-        self.data["ruc"] = self.ruc_cliente.text()
-        self.data["fecha"] = self.fecha_entry.date().toString("dd/MM/yyyy")
-
-        return self.data
+        """Retorna un diccionario limpio con los datos del cliente."""
+        nombre = self.nombre_entry.text().strip()
+        dni = self.num_doc_entry.text().strip()
+        ruc = self.ruc_cliente.text().strip()
+        return {
+            "nombre": nombre or None,
+            "dni": dni or None,
+            "ruc": ruc or None,
+        }
 
     def clean_all(self):
         """Limpia todos los campos del formulario."""
@@ -113,3 +118,6 @@ class ClienteView(QWidget):
         self.nombre_entry.clear()
         self.ruc_cliente.clear()
         self.fecha_entry.setDate(QDate.currentDate())
+    def obtener_fecha(self):
+        fecha_str = self.fecha_entry.date().toString("dd/MM/yyyy")
+        return fecha_str

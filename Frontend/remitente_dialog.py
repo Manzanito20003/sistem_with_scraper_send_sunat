@@ -1,3 +1,4 @@
+"""Archivo de Ventana emergente Remitente"""
 import logging
 
 from PyQt5.QtWidgets import QMessageBox, QPushButton, QListWidget, QVBoxLayout, QDialog
@@ -11,7 +12,10 @@ class RemitenteDialog(QDialog):
         self.selected_remitente = None
         self.selected_remitente_id = None
         self.db = db
+        self.initUI()
 
+    def initUI(self):
+        """Iniciar UI remitente dialog"""
         self.setWindowTitle("Seleccionar Remitente")
         self.setGeometry(100, 100, 300, 200)
 
@@ -60,9 +64,9 @@ class RemitenteDialog(QDialog):
             nombre_seleccionado = selected_items[0].text()
             remitente_id = self.remitentes.get(nombre_seleccionado)
 
-            # Depuración: Verificar si encontramos el ID
             logging.info(
-                f" Remitente seleccionado: {nombre_seleccionado}, ID: {remitente_id}"
+                f" Remitente seleccionado: {nombre_seleccionado},"
+                f"ID: {remitente_id}"
             )
 
             if remitente_id is None:
@@ -75,5 +79,5 @@ class RemitenteDialog(QDialog):
             self.accept()
         except Exception as e:
             error_msg = f"Error al seleccionar remitente: {e}"
-            logging.error(f" {error_msg}")
+            logging.error(error_msg)
             QMessageBox.critical(self, "Error", error_msg)

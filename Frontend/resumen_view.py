@@ -51,7 +51,7 @@ class ResumenView(QWidget):
         self.igv_label.setText(f"Total IGV: S/ {total_igv:.2f}")
         self.total_label.setText(f"Total importe: S/ {total_importe:.2f}")
 
-    def actualizar_serie_y_numero(self, id_sender=None, tipo_documento="Boleta"):
+    def actualizar_serie_y_numero(self, id_sender=None, tipo_documento="BOLETA"):
         """Actualiza la serie y número de documento basado en la selección de tipo y el ID del remitente."""
 
         if id_sender is None:
@@ -67,7 +67,7 @@ class ResumenView(QWidget):
             return  # No se pudo obtener el número
 
         # Determinar el prefijo según el tipo de documento
-        prefijo = "B" if tipo_documento == "Boleta" else "F"
+        prefijo = "B" if tipo_documento == "BOLETA" else "F"
 
         serie = f"{prefijo}{id_sender:02d}-{num_documento:02d}"
         numero = f"{num_documento:02d}"
@@ -83,9 +83,11 @@ class ResumenView(QWidget):
 
     def obtener_datos_resumen(self):
         """Obtiene los datos del resumen."""
+        logging.info("Obteniendo datos del resumen...")
         return {
             "serie": self.serie,
             "numero": self.numero,
+            "sub_total":round(self.total - self.igv_total, 2),
             "igv_total": self.igv_total,
             "total": self.total,
         }

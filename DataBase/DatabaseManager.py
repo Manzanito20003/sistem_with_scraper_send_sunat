@@ -1,8 +1,8 @@
 # DataBase/DatabaseManager.py
 
-import sqlite3
 import os
-import difflib
+import sqlite3
+
 from rapidfuzz import process, fuzz  # asegúrate de tener rapidfuzz instalado
 
 
@@ -12,7 +12,7 @@ class DatabaseManager:
         if db_path is None:
             base_dir = os.path.dirname(os.path.abspath(__file__))
             db_path = os.path.join(base_dir, "billing_system.db")
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
 
     def close(self):
