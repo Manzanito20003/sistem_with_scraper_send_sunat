@@ -1,119 +1,97 @@
+import logging
 import sys
-import time
-
 from PyQt5.QtWidgets import QApplication, QComboBox, QVBoxLayout, QWidget
-from PyQt5.QtCore import Qt, QTimer
-from DataBase.DatabaseManager import (
-    DatabaseManager,
-)  # asegúrate de que esta función esté bien implementada
+from PyQt5.QtCore import Qt
+from DataBase.DatabaseManager import DatabaseManager
 
+abreviaturas = {
+    "KILOGRAMO": "KL",
+    "UNIDAD": "UN",
+    "CAJA": "CJ",
+    "BOLSA": "BS",
+}
 
 class AutComboBox(QComboBox):
-
-    def __init__(self, parent=None, row=None):
-        # name_combo es el nombre por defecto (no usado aún)
+    def __init__(self, parent=None, row=None, cache=None, match_func=None, parse_func=None):
         super().__init__(parent)
         self.parent_widget = parent
-        self.db = DatabaseManager()
         self.row = row
-        self.abreviaturas = {
-            "KILOGRAMO": "KL",
-            "UNIDAD": "UN",
-            "CAJA": "CJ",
-            "BOLSA": "BS",
-        }
+        self.data_cache = cache
+        self.match_func = match_func
+        self.parse_func = parse_func
 
         self.setEditable(True)
         self.setInsertPolicy(QComboBox.NoInsert)
         self.setFocus()
         self.setMinimumWidth(235)
-
-
-        # 🎯 Detectar selección de item
         self.activated.connect(self.on_item_selected)
 
-    def showPopup(self):
-        print("⚡ Desplegando la lista, aquí puedes cargar datos o actualizar")
+        #DEBUG
+        logging.debug(f" data_cache: {self.data_cache}\n"
+                      f" match_func: {self.match_func}\n"
+                      f" parse_func: {self.parse_func}")
 
+
+    def showPopup(self):
         texto = self.currentText()
         self.clear()
         self.addItem(texto)
         self.parsear_data_to_combo(self.matching_items(texto))
-
-        # Ahora sí mostramos el popup
         super().showPopup()
 
-    def restart_debounce(self):
-        self.debounce_timer.start()
-
-    def on_editing_finished(self):
-        print("Se dejó de escribir")
-
-        descripcion_actual = self.currentText()
-        self.setCurrentIndex(-1)  # No seleccionar nada por defecto
-        self.setEditText(descripcion_actual)  # Mantener texto
-        print("Descripción actual:", descripcion_actual)
-        ## Si el texto está vacío, limpiar el combo
-        if descripcion_actual.split() == "":
-            return
-
-        self.clear()
-        data_match = self.matching_items(descripcion_actual)
-
-        # Mantener texto ingresado
-        text = self.lineEdit().text()
-        print("Texto escrito:", text)
-        self.addItem(text)
-
-        # Agregar los resultados encontrados
-        self.parsear_data_to_combo(data_match)
-
     def matching_items(self, text):
-        if text is None:
-            return ""
-        data_match = self.db.match_product_fuzzy(text)
-        print("Data match:", data_match)
-        return data_match
+        if text is None or self.match_func is None:
+            return []
+        return self.match_func(self.data_cache, text)
 
     def parsear_data_to_combo(self, data):
-        for id_producto, nombre, unidad, precio, igv, _ in data:
-            abrev = self.abreviaturas.get(unidad, unidad)
-            estado_igv = "Sí" if igv == 1 else "No"
-            texto_opcion = f"{nombre} | S/ {precio:.2f} | {abrev} | {estado_igv}"
-            self.addItem(texto_opcion, (nombre, precio, unidad, igv, id_producto))
+        if self.parse_func is None:
+            return
+        try:
+            for texto, valor in self.parse_func(data):
+                if not isinstance(texto, str):
+                    logging.error(f"❌ texto no es str: {texto}")
+                    continue
+                self.addItem(texto, valor)
+        except Exception as e:
+            logging.exception(f"❌ Error en parsear_data_to_combo: {e}")
 
     def on_item_selected(self, index):
-        print(f"Ítem seleccionado: {index}")
-
         datos = self.itemData(index)
+
         if datos and self.row is not None:
             if hasattr(self.parent_widget, "actualizar_producto_seleccionado"):
                 self.parent_widget.actualizar_producto_seleccionado(self.row, datos)
+            if hasattr(self.parent_widget, "actualizar_cliente_seleccionado"):
+                self.parent_widget.actualizar_cliente_seleccionado(datos)
         else:
-            print("Error: la fila (row) es None o no se pasó correctamente.")
+            print("⚠️ La fila (row) es None o no se pasó correctamente.")
+
+# 🔧 Parsers
+
+def parse_productos(data):
+    resultado = []
+    for row in data:
+        id_producto, nombre, unidad, precio, igv = row[:5]  # Solo tomamos los 5 primeros
+        abrev = abreviaturas.get(unidad, unidad)
+        estado_igv = "Sí" if igv == 1 else "No"
+        texto = f"{nombre} | S/ {precio:.2f} | {abrev} | {estado_igv}"
+        valor = (nombre, precio, unidad, igv, id_producto)
+        resultado.append((texto, valor))
+    return resultado
 
 
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        layout = QVBoxLayout(self)
+def parse_cliente(data):
+    resultado = []
+    for row in data:
+        id_cliente, nombre, dni, ruc = row[:4]
+        texto = f"{nombre} | DNI: {dni or '-'} | RUC: {ruc or '-'}"
+        valor = (nombre, dni, ruc, id_cliente)
+        resultado.append((texto, valor))
+    return resultado
 
-        combo = AutComboBox(self)
-        combo2 = AutComboBox(self)
-
-        layout.addWidget(combo)
-        layout.addWidget(combo2)
-        self.setLayout(layout)
-
-    def actualizar_producto_seleccionado(self, index, datos):
-        nombre, precio, unidad, igv, id_producto = datos
-        print(
-            f"Producto seleccionado: {nombre} | Precio: {precio} | Unidad: {unidad} | IGV: {igv} | ID: {id_producto}"
-        )
-
-
+# ▶️ Ejecutar app
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
+
     sys.exit(app.exec_())

@@ -46,13 +46,16 @@ class BoletaApp(QWidget):
         self.worker = None   # para hilos
 
         self.db = DatabaseManager()
+        self.productos_cache=self.db.get_products()
+        self.clientes_cache=self.db.get_clients()
+
         self.controller = BoletaController(self.db)
         self.img_label = None
         self.tipo_documento_combo = QComboBox()
         self.tipo_documento_combo.addItems(["Boleta", "Factura"])
 
-        self.product_view = ProductView(self,)
-        self.cliente_view = ClienteView(self, self.tipo_documento_combo)
+        self.product_view = ProductView(self,cache=self.productos_cache)
+        self.cliente_view = ClienteView(self, self.tipo_documento_combo,cache=self.clientes_cache)
         self.resumen_view = ResumenView(db=self.db)
 
         self.initUI()

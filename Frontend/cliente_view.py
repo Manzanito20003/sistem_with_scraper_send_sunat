@@ -12,12 +12,12 @@ from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
 )
-
+from Frontend.utils.tools import AutComboBox,parse_cliente
 
 class ClienteView(QWidget):
     """Clase Vista del cliente para poder ser unido con la interfaz principal"""
 
-    def __init__(self, parent=None, tipo_documento_combo=None):
+    def __init__(self, parent=None, tipo_documento_combo=None,cache=None):
         super().__init__()
         self.parent = parent
         self.tipo_documento_combo = tipo_documento_combo
@@ -28,6 +28,7 @@ class ClienteView(QWidget):
         self.fecha_entry = None
         self.id_cliente_sugerido = None
 
+        self.clientes_cache = cache
         self.initUI()
 
     def validate(self):
@@ -46,7 +47,13 @@ class ClienteView(QWidget):
 
         # Campos
         self.num_doc_entry = QLineEdit()
-        self.nombre_entry = QLineEdit()
+        self.nombre_entry = AutComboBox(
+            parent=self,
+            row=0,
+            cache=self.clientes_cache,
+            match_func=self.parent.controller.match_fuzzy,  # ya funciona con cualquier lista de tuplas
+            parse_func=parse_cliente
+        )
         self.ruc_cliente = QLineEdit()
         self.fecha_entry = QDateEdit()
 
@@ -101,6 +108,23 @@ class ClienteView(QWidget):
                 f"No se pudieron cargar los datos del cliente: {e}", exc_info=True
             )
 
+    def actualizar_cliente_seleccionado(self, cliente_data):
+        """Actualiza los campos del formulario con los datos del cliente seleccionado."""
+
+        logging.info("Actualizando datos del cliente sugerido")
+        try:
+            if cliente_data:
+                nombre = cliente_data[0] or ""
+                dni = cliente_data[1] or ""
+                ruc = cliente_data[2] or ""
+                id_cliente = cliente_data[3]
+
+                self.nombre_entry.setEditText(nombre)
+                self.num_doc_entry.setText(dni)
+                self.ruc_cliente.setText(ruc)
+                self.id_cliente_sugerido = id_cliente
+        except Exception as e:
+            logging.error(f"Error al actualizar cliente seleccionado: {e}", exc_info=True)
     def obtener_datos_cliente(self):
         """Retorna un diccionario limpio con los datos del cliente."""
         nombre = self.nombre_entry.text().strip()

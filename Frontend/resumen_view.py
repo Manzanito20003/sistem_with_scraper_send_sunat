@@ -22,12 +22,9 @@ class ResumenView(QWidget):
         self.total = ""
 
     def initUI(self):
-        print("ResumenView")
 
         resumen_layout = QVBoxLayout()
-
         resumen_box = QGroupBox("Resumen")
-
         # Agregar etiquetas dinámicas
 
         # Agregar widgets al layout

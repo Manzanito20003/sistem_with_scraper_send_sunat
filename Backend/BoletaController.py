@@ -1,6 +1,8 @@
 import logging
+from typing import List, Tuple
 
 from pydantic import ValidationError
+from rapidfuzz import process, fuzz
 
 from Backend.models import BoletaData
 from Scraping.scraper_sunat import send_billing_sunat
@@ -123,3 +125,61 @@ class BoletaController:
                 f"No se pudo completar la inserción de productos o la boleta. Detalle: {e}"
             )
             return
+
+
+
+    #---- DB  ---
+    def match_fuzzy(self, data: List[Tuple], query: str) -> List[Tuple]:
+        """
+        Productos ((id, nombre, unidad, precio, igv, ...)) -> ejemplo
+        Busca coincidencias aproximadas del nombre de producto con la query.
+        """
+        if query == "":
+            return []
+
+        data_names = [str(item[1]).lower() for item in data]
+        query= query.lower()
+
+        # Buscar coincidencias aproximadas
+        results = process.extract(
+            query,
+            data_names,
+            scorer=fuzz.WRatio,
+            score_cutoff=60
+        )
+
+        # Emparejar con los productos originales
+        matches_with_confidence = []
+        for name, score, index in results:
+            product = data[index]
+            matches_with_confidence.append((*product, score))  # Agrega el score
+
+        # Retornar los mejores 5 resultados (ordenados por score descendente)
+        return sorted(matches_with_confidence, key=lambda x: x[-1], reverse=True)[:5]
+
+
+
+if __name__ == "__main__":
+    # Datos de prueba (id, nombre, otro campo opcional)
+    sample_data = [
+        (1, "Arroz Extra Superior", 5.50),
+        (2, "Azúcar Rubia", 4.80),
+        (3, "Aceite Vegetal", 6.00),
+        (4, "Harina Integral", 3.50),
+        (5, "Sal de Mesa", 1.20),
+    ]
+
+    # 🔹 Query a buscar
+    query = "arros superor"  # mal escrito
+
+
+    class DummyDB:
+        pass
+    controller = BoletaController(DummyDB())
+    result = controller.match_fuzzy(sample_data, query)
+
+    # 🔹 Verificar resultados
+    print("Resultados encontrados:")
+    for match in result:
+        print(match)
+

@@ -292,52 +292,6 @@ class DatabaseManager:
         )
         self.conn.commit()
 
-    def match_product_fuzzy(self, search_term):
-        """
-        Busca un producto en la base de datos con coincidencias exactas y aproximadas (fuzzy).
-
-        :param search_term: Nombre parcial o con errores del producto
-        :return: Lista de tuplas con (id, name, unit, price, igv, confidence)
-        """
-        # 🔹 1️⃣ Buscar coincidencias exactas con LIKE
-        query = """
-            SELECT id, name, unit, price, igv FROM products 
-            WHERE LOWER(name) LIKE LOWER(?) 
-            ORDER BY LENGTH(name) ASC;
-        """
-        self.cursor.execute(query, (f"%{search_term}%",))
-        exact_matches = self.cursor.fetchall()
-
-        if exact_matches:
-            return [
-                (row[0], row[1], row[2], row[3], row[4], 100) for row in exact_matches
-            ]
-
-        # 🔹 2️⃣ Obtener todos los productos disponibles en la BD
-        self.cursor.execute("SELECT id, name, unit, price, igv FROM products")
-        products = self.cursor.fetchall()
-        product_names = [row[1] for row in products]
-
-        # 🔹 3️⃣ Buscar coincidencias aproximadas (fuzzy)
-        matches_with_confidence = []
-        if product_names:
-            results = process.extract(
-                search_term,
-                product_names,
-                scorer=fuzz.partial_ratio,
-                limit=5,
-                score_cutoff=70,
-            )
-
-            for name, score, index in results:
-                product = products[index]
-                matches_with_confidence.append(
-                    (*product, score)
-                )  # Agrega el score al final
-
-        # 🔹 4️⃣ Retornar los mejores 3 resultados (ordenados por confianza)
-        return sorted(matches_with_confidence, key=lambda x: x[5], reverse=True)[:3]
-
     def get_senders_and_id(self):
         """Obtiene todos los remitentes (id y nombre)."""
         self.cursor.execute("SELECT id, name FROM sender")

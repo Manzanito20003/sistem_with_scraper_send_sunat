@@ -14,13 +14,13 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
-from Frontend.utils.tools import AutComboBox
+from Frontend.utils.tools import AutComboBox, parse_productos
 
 
 class ProductView(QWidget):
     """Aqui separaremos la logica de la vista de la logica de los productos"""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None,cache=None):
         super().__init__()
 
         self.precios_base_originales = {}
@@ -28,6 +28,7 @@ class ProductView(QWidget):
         self.data = {}
         self.productos_table = None  # Inicializar correctamente la tabla
 
+        self.productos_cache=cache
         self.initUI()
 
     def initUI(self):
@@ -155,7 +156,16 @@ class ProductView(QWidget):
                 self.productos_table.setItem(row, 0, QTableWidgetItem(str(cantidad)))
                 self.productos_table.setCellWidget(row, 1, unidad_combo)
 
-                combo = AutComboBox(self, row=row)
+                if not hasattr(self.parent, "controller"):
+                    logging.error("Parent no tiene 'controller'")
+                    return
+
+                combo = AutComboBox(parent=self,
+                    row=row,
+                    cache=self.productos_cache,
+                    match_func=self.parent.controller.match_fuzzy,
+                    parse_func=parse_productos
+                )
                 combo.setEditText(producto.get("descripcion", ""))
                 self.productos_table.setCellWidget(row, 2, combo)
 
@@ -501,7 +511,16 @@ class ProductView(QWidget):
         unidad_combo.addItems(["CAJA", "KILOGRAMO", "BOLSA", "UNIDAD"])
         self.productos_table.setCellWidget(fila, 1, unidad_combo)
 
-        combo = AutComboBox(self, row=fila)
+        if not hasattr(self.parent, "controller"):
+            logging.error("Parent no tiene 'controller'")
+            return
+        combo = AutComboBox(
+            parent=self,
+            row=fila,
+            cache=self.productos_cache,
+            match_func=self.parent.controller.match_fuzzy,
+            parse_func=parse_productos
+        )
         combo.setEditText("")
         self.productos_table.setCellWidget(fila, 2, combo)
 
@@ -521,7 +540,6 @@ class ProductView(QWidget):
 
         self.productos_table.setItem(fila, 5, QTableWidgetItem("S/ 0.00"))  # Total IGV
         self.productos_table.setItem(fila, 6, QTableWidgetItem("S/ 0.00"))  # Total
-
         self.agregar_boton_borrar(fila)
 
     def agregar_boton_borrar(self, row):
@@ -535,9 +553,9 @@ class ProductView(QWidget):
                 background-color: red;
                 color: white;
                 border-radius: 5px;
-                padding: 8px;          /* espacio interno (contenido) */
+                padding: 8px;
                 margin: 3
-                px;  
+                px;
             }
             QPushButton:hover {
                 background-color: darkred;
@@ -547,10 +565,10 @@ class ProductView(QWidget):
             QPushButton:pressed {
                 background-color: lightcoral;
             }
-        
-        
+
+
         '''
-        )  # Estilo del botón
+        )
 
         # Conectar el clic del botón con el método que borra la fila
         boton_borrar.clicked.connect(lambda: self.borrar_fila(row))
