@@ -156,6 +156,22 @@ class BoletaController:
         # Retornar los mejores 5 resultados (ordenados por score descendente)
         return sorted(matches_with_confidence, key=lambda x: x[-1], reverse=True)[:5]
 
+    def agregar_sender(self, nombre: str, ruc: str, user: str,password:str) -> bool:
+        """
+        Agrega un nuevo remitente a la base de datos.
+        Retorna el ID del remitente agregado.
+        """
+        if not nombre or not ruc or not user or not password:
+            logging.error("Nombre, RUC, user y password son obligatorios.")
+            return None
+        try:
+            self.db.insert_sender(nombre, ruc, user, password)
+            logging.info(f"Remitente '{nombre}' agregado correctamente.")
+            return True
+        except Exception as e:
+            logging.error(f"Error al agregar remitente: {e}")
+            return None        
+
 
 if __name__ == "__main__":
     # Datos de prueba (id, nombre, otro campo opcional)

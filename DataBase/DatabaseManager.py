@@ -297,3 +297,13 @@ class DatabaseManager:
         self.cursor.execute("SELECT id, name FROM sender")
         senders = self.cursor.fetchall()
         return senders
+
+
+
+if __name__ == "__main__":
+    db_manager = DatabaseManager()
+    
+    #db_manager.delete_all_data()  # Limpia la base de datos para pruebas
+    db_manager.create_tables()  # Crea las tablas nuevamente
+    db_manager.close()
+    print("Base de datos y tablas creadas correctamente.")
