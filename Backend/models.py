@@ -66,7 +66,7 @@ class BoletaData(BaseModel):
     id_cliente: str
     tipo_documento: Literal["BOLETA", "FACTURA"] = "BOLETA"
 
-    @field_validator("fecha",mode="before")
+    @field_validator("fecha", mode="before")
     @classmethod
     def fecha_valida(cls, v):
         try:

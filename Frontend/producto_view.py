@@ -1,8 +1,8 @@
-import json
+"""widget para Productos"""
 import logging
-
 from functools import partial
-from PyQt5.QtGui import QFont
+
+from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import (
     QGroupBox,
     QTableWidget,
@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QTableWidgetItem,
     QMessageBox,
-    QPushButton,
+    QPushButton, QGraphicsDropShadowEffect,
 )
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
@@ -20,15 +20,14 @@ from Frontend.utils.tools import AutComboBox, parse_productos
 class ProductView(QWidget):
     """Aqui separaremos la logica de la vista de la logica de los productos"""
 
-    def __init__(self, parent=None,cache=None):
+    def __init__(self, parent=None, cache=None):
         super().__init__()
 
         self.precios_base_originales = {}
         self.parent = parent  # Referencia al contenedor principal
         self.data = {}
-        self.productos_table = None  # Inicializar correctamente la tabla
-
-        self.productos_cache=cache
+        self.productos_table = None
+        self.productos_cache = cache
         self.initUI()
 
     def initUI(self):
@@ -80,9 +79,7 @@ class ProductView(QWidget):
         )
 
         productos_layout.addWidget(productos_box)
-
         self.productos_table.itemChanged.connect(self.recalcular_por_cambios)
-
         self.setLayout(productos_layout)
 
     def actualizar_producto_seleccionado(self, row, datos_producto):
@@ -98,7 +95,7 @@ class ProductView(QWidget):
         if combo:
             combo.setEditText(nombre)
 
-        # 🔹 Actualizar valores en la tabla
+        # Actualizar valores en la tabla
         self.productos_table.setItem(
             row, 1, QTableWidgetItem(unidad)
         )  # Unidad de medida
@@ -108,7 +105,7 @@ class ProductView(QWidget):
         )  # Precio Base
         self.productos_table.setItem(
             row, 4, QTableWidgetItem("Sí" if igv == 1 else "No")
-        )  # IGV
+        )  # igv
 
         logging.info(
             f"Producto seleccionado: {nombre}, ID: {id_producto}, Precio: {precio}, Unidad: {unidad}"
@@ -147,7 +144,9 @@ class ProductView(QWidget):
                 except TypeError:
                     pass
 
-                igv_combo.currentTextChanged.connect(partial(self.actualizar_igv_producto, row))
+                igv_combo.currentTextChanged.connect(
+                    partial(self.actualizar_igv_producto, row)
+                )
 
                 unidad_combo = QComboBox()
                 unidad_combo.addItems(["CAJA", "KILOGRAMO", "BOLSA", "UNIDAD"])
@@ -160,25 +159,36 @@ class ProductView(QWidget):
                     logging.error("Parent no tiene 'controller'")
                     return
 
-                combo = AutComboBox(parent=self,
+                combo = AutComboBox(
+                    parent=self,
                     row=row,
                     cache=self.productos_cache,
                     match_func=self.parent.controller.match_fuzzy,
-                    parse_func=parse_productos
+                    parse_func=parse_productos,
                 )
                 combo.setEditText(producto.get("descripcion", ""))
                 self.productos_table.setCellWidget(row, 2, combo)
 
-                self.productos_table.setItem(row, 3, QTableWidgetItem(f"S/ {precio:.2f}"))
+                self.productos_table.setItem(
+                    row, 3, QTableWidgetItem(f"S/ {precio:.2f}")
+                )
                 self.productos_table.setCellWidget(row, 4, igv_combo)
-                self.productos_table.setItem(row, 5, QTableWidgetItem(f"S/ {igv_producto:.2f}"))
-                self.productos_table.setItem(row, 6, QTableWidgetItem(f"S/ {total_producto:.2f}"))
+                self.productos_table.setItem(
+                    row, 5, QTableWidgetItem(f"S/ {igv_producto:.2f}")
+                )
+                self.productos_table.setItem(
+                    row, 6, QTableWidgetItem(f"S/ {total_producto:.2f}")
+                )
 
                 self.agregar_boton_borrar(row)
 
         except Exception as e:
-            logging.error(f"Ocurrió un problema al llenar los datos en la fila {row}: {e}")
-            logging.error(f" Datos del producto problemático: {producto.get('descripcion')}")
+            logging.error(
+                f"Ocurrió un problema al llenar los datos en la fila {row}: {e}"
+            )
+            logging.error(
+                f" Datos del producto problemático: {producto.get('descripcion')}"
+            )
 
     def obtener_datos_producto(self):
         """Toma los valores actuales de los campos y los guarda en self.data"""
@@ -267,9 +277,7 @@ class ProductView(QWidget):
         cantidad_item = self.productos_table.item(row, 0)  # Cantidad
         total_item = self.productos_table.item(row, 6)  # Precio Total del Producto
         precio_base_item = self.productos_table.item(row, 3)  # Precio Base
-        igv_combo = self.productos_table.cellWidget(
-            row, 4
-        )
+        igv_combo = self.productos_table.cellWidget(row, 4)
 
         if not cantidad_item:
             logging.error(
@@ -486,10 +494,10 @@ class ProductView(QWidget):
             )
             if igv_combo.currentText() == "Sí":
                 logging.info("allando el preico base con igv afecto")
-                precio_base = precio_total / (cantidad * 1.18)  # ✅ Deshace el IGV
+                precio_base = precio_total / (cantidad * 1.18)
             else:
                 logging.info("allando el preico base con igv no afecto")
-                precio_base = precio_total / cantidad  # ✅ Mantiene el precio base
+                precio_base = precio_total / cantidad
 
             # actualizamos el precio base
             self.productos_table.setItem(
@@ -519,12 +527,14 @@ class ProductView(QWidget):
             row=fila,
             cache=self.productos_cache,
             match_func=self.parent.controller.match_fuzzy,
-            parse_func=parse_productos
+            parse_func=parse_productos,
         )
         combo.setEditText("")
         self.productos_table.setCellWidget(fila, 2, combo)
 
-        self.productos_table.setItem(fila, 3, QTableWidgetItem("S/ 0.00"))  # Precio base
+        self.productos_table.setItem(
+            fila, 3, QTableWidgetItem("S/ 0.00")
+        )  # Precio base
 
         igv_combo = QComboBox()
         igv_combo.addItems(["No", "Sí"])
@@ -535,7 +545,9 @@ class ProductView(QWidget):
         except TypeError:
             pass
 
-        igv_combo.currentTextChanged.connect(partial(self.actualizar_igv_producto, fila))
+        igv_combo.currentTextChanged.connect(
+            partial(self.actualizar_igv_producto, fila)
+        )
         self.productos_table.setCellWidget(fila, 4, igv_combo)
 
         self.productos_table.setItem(fila, 5, QTableWidgetItem("S/ 0.00"))  # Total IGV
@@ -544,15 +556,15 @@ class ProductView(QWidget):
 
     def agregar_boton_borrar(self, row):
         """Agregar un botón para borrar la fila especificada."""
-        # Crear el botón de borrar
         boton_borrar = QPushButton("X")
 
         boton_borrar.setStyleSheet(
             '''
             QPushButton {
-                background-color: red;
+                background-color: #ff4d4f;
                 color: white;
-                border-radius: 5px;
+                border-radius: 7px;
+                box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
                 padding: 8px;
                 margin: 3
                 px;
@@ -569,7 +581,12 @@ class ProductView(QWidget):
 
         '''
         )
-
+        sombra = QGraphicsDropShadowEffect()
+        sombra.setBlurRadius(15)
+        sombra.setXOffset(0)
+        sombra.setYOffset(4)
+        sombra.setColor(QColor(0, 0, 0, 160))  # sombra gris oscura
+        boton_borrar.setGraphicsEffect(sombra)
         # Conectar el clic del botón con el método que borra la fila
         boton_borrar.clicked.connect(lambda: self.borrar_fila(row))
 

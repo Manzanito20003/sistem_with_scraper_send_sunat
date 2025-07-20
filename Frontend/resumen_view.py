@@ -84,7 +84,7 @@ class ResumenView(QWidget):
         return {
             "serie": self.serie,
             "numero": self.numero,
-            "sub_total":round(self.total - self.igv_total, 2),
+            "sub_total": round(self.total - self.igv_total, 2),
             "igv_total": self.igv_total,
             "total": self.total,
         }

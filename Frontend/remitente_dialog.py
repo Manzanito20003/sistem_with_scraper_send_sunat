@@ -1,4 +1,5 @@
 """Archivo de Ventana emergente Remitente"""
+
 import logging
 
 from PyQt5.QtWidgets import QMessageBox, QPushButton, QListWidget, QVBoxLayout, QDialog
@@ -65,8 +66,7 @@ class RemitenteDialog(QDialog):
             remitente_id = self.remitentes.get(nombre_seleccionado)
 
             logging.info(
-                f" Remitente seleccionado: {nombre_seleccionado},"
-                f"ID: {remitente_id}"
+                f" Remitente seleccionado: {nombre_seleccionado}," f"ID: {remitente_id}"
             )
 
             if remitente_id is None:

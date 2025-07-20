@@ -1,4 +1,5 @@
 """Declaracion de la Vista Cliente"""
+
 import logging
 
 from PyQt5.QtCore import QDate
@@ -12,12 +13,13 @@ from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
 )
-from Frontend.utils.tools import AutComboBox,parse_cliente
+from Frontend.utils.tools import AutComboBox, parse_cliente
+
 
 class ClienteView(QWidget):
     """Clase Vista del cliente para poder ser unido con la interfaz principal"""
 
-    def __init__(self, parent=None, tipo_documento_combo=None,cache=None):
+    def __init__(self, parent=None, tipo_documento_combo=None, cache=None):
         super().__init__()
         self.parent = parent
         self.tipo_documento_combo = tipo_documento_combo
@@ -52,7 +54,7 @@ class ClienteView(QWidget):
             row=0,
             cache=self.clientes_cache,
             match_func=self.parent.controller.match_fuzzy,  # ya funciona con cualquier lista de tuplas
-            parse_func=parse_cliente
+            parse_func=parse_cliente,
         )
         self.ruc_cliente = QLineEdit()
         self.fecha_entry = QDateEdit()
@@ -66,18 +68,25 @@ class ClienteView(QWidget):
         self.fecha_entry.setCalendarPopup(True)
         self.fecha_entry.setDate(QDate.currentDate())
 
-        # Agregar widgets al layout
+        # Fila 1
         cliente_layout.addWidget(QLabel("No. DNI"), 0, 0)
-        cliente_layout.addWidget(self.num_doc_entry, 0, 1, 1, 2)
+        cliente_layout.addWidget(self.num_doc_entry, 0, 1)
 
-        cliente_layout.addWidget(QLabel("Nombre"), 0, 3)
-        cliente_layout.addWidget(self.nombre_entry, 0, 4)
+        cliente_layout.addWidget(QLabel("Nombre"), 0, 2)
+        cliente_layout.addWidget(self.nombre_entry, 0, 3)
 
+        # Fila 2
         cliente_layout.addWidget(QLabel("RUC"), 1, 0)
-        cliente_layout.addWidget(self.ruc_cliente, 1, 1, 1, 2)
+        cliente_layout.addWidget(self.ruc_cliente, 1, 1)
 
-        cliente_layout.addWidget(QLabel("Fecha"), 1, 3)
-        cliente_layout.addWidget(self.fecha_entry, 1, 4, 1, 1)
+        cliente_layout.addWidget(QLabel("Fecha"), 1, 2)
+        cliente_layout.addWidget(self.fecha_entry, 1, 3)
+
+        cliente_layout.setColumnStretch(0, 1)  # Etiqueta "No. DNI" / "RUC"
+        cliente_layout.setColumnStretch(1, 2)  # Campo de entrada
+        cliente_layout.setColumnStretch(2, 1)  # Etiqueta "Nombre" / "Fecha"
+        cliente_layout.setColumnStretch(3, 2)  # Campo de entrada
+
 
         cliente_box.setLayout(cliente_layout)
 
@@ -94,10 +103,10 @@ class ClienteView(QWidget):
             self.parent.tipo_documento_combo.setCurrentText("Boleta")
 
     def fill_form_client(self, cliente_data):
-        """Llenado de los datos del cliente """
+        """Llenado de los datos del cliente"""
         try:
             self.num_doc_entry.setText(cliente_data.get("dni", ""))
-            self.nombre_entry.setText(cliente_data.get("cliente", ""))
+            self.nombre_entry.setEditText(cliente_data.get("cliente", ""))
             self.ruc_cliente.setText(cliente_data.get("ruc", ""))
 
             fecha_str = cliente_data.get("fecha", "")
@@ -124,10 +133,13 @@ class ClienteView(QWidget):
                 self.ruc_cliente.setText(ruc)
                 self.id_cliente_sugerido = id_cliente
         except Exception as e:
-            logging.error(f"Error al actualizar cliente seleccionado: {e}", exc_info=True)
+            logging.error(
+                f"Error al actualizar cliente seleccionado: {e}", exc_info=True
+            )
+
     def obtener_datos_cliente(self):
         """Retorna un diccionario limpio con los datos del cliente."""
-        nombre = self.nombre_entry.text().strip()
+        nombre = self.nombre_entry.currentText().strip()
         dni = self.num_doc_entry.text().strip()
         ruc = self.ruc_cliente.text().strip()
         return {
@@ -142,6 +154,7 @@ class ClienteView(QWidget):
         self.nombre_entry.clear()
         self.ruc_cliente.clear()
         self.fecha_entry.setDate(QDate.currentDate())
+
     def obtener_fecha(self):
         fecha_str = self.fecha_entry.date().toString("dd/MM/yyyy")
         return fecha_str

@@ -83,5 +83,55 @@ import json
 #     # data={"cliente":{'fecha': '14/03/25', 'cliente': 'JEFERSSON', 'dni': '75276980', 'ruc': '10752769805'}, 'productos': [{'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVENA ', 'precio_base': 6.0, 'Igv': 0, 'precio_total': 12.0},{'cantidad': 5, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'CANCHA MONTANA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 23.0}, {'cantidad': 4, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVP RUMBA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 18.4}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'MORON ENT', 'precio_base': 3.8, 'Igv': 0, 'precio_total': 7.6}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'PARDINA', 'precio_base': 6.2, 'Igv': 0, 'precio_total': 12.4}], 'total': 153.1}
 #     # return json.dumps(data, indent=4)
 def process_image_to_json(image_path):
-    data={"cliente":{'fecha': '14/03/25', 'cliente': 'JEFERSSON', 'dni': '75276980', 'ruc': '10752769805'}, 'productos': [{'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVENA ', 'precio_base': 6.0, 'Igv': 0, 'precio_total': 12.0},{'cantidad': 5, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'CANCHA MONTANA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 23.0}, {'cantidad': 4, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'AVP RUMBA', 'precio_base': 4.6, 'Igv': 0, 'precio_total': 18.4}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'MORON ENT', 'precio_base': 3.8, 'Igv': 0, 'precio_total': 7.6}, {'cantidad': 2, 'unidad_medida': 'KILOGRAMO', 'descripcion': 'PARDINA', 'precio_base': 6.2, 'Igv': 0, 'precio_total': 12.4}], 'total': 153.1}
+    data = {
+        "cliente": {
+            "fecha": "14/03/25",
+            "cliente": "JEFERSSON",
+            "dni": "75276980",
+            "ruc": "10752769805",
+        },
+        "productos": [
+            {
+                "cantidad": 2,
+                "unidad_medida": "KILOGRAMO",
+                "descripcion": "AVENA ",
+                "precio_base": 6.0,
+                "Igv": 0,
+                "precio_total": 12.0,
+            },
+            {
+                "cantidad": 5,
+                "unidad_medida": "KILOGRAMO",
+                "descripcion": "CANCHA MONTANA",
+                "precio_base": 4.6,
+                "Igv": 0,
+                "precio_total": 23.0,
+            },
+            {
+                "cantidad": 4,
+                "unidad_medida": "KILOGRAMO",
+                "descripcion": "AVP RUMBA",
+                "precio_base": 4.6,
+                "Igv": 0,
+                "precio_total": 18.4,
+            },
+            {
+                "cantidad": 2,
+                "unidad_medida": "KILOGRAMO",
+                "descripcion": "MORON ENT",
+                "precio_base": 3.8,
+                "Igv": 0,
+                "precio_total": 7.6,
+            },
+            {
+                "cantidad": 2,
+                "unidad_medida": "KILOGRAMO",
+                "descripcion": "PARDINA",
+                "precio_base": 6.2,
+                "Igv": 0,
+                "precio_total": 12.4,
+            },
+        ],
+        "total": 153.1,
+    }
     return json.dumps(data, indent=4)

@@ -43,19 +43,21 @@ class BoletaApp(QWidget):
         self.selected_remitente = None
         self.selected_remitente_id = None
         self.actualizar_tipo_documento = None
-        self.worker = None   # para hilos
+        self.worker = None  # para hilos
 
         self.db = DatabaseManager()
-        self.productos_cache=self.db.get_products()
-        self.clientes_cache=self.db.get_clients()
+        self.productos_cache = self.db.get_products()
+        self.clientes_cache = self.db.get_clients()
 
         self.controller = BoletaController(self.db)
         self.img_label = None
         self.tipo_documento_combo = QComboBox()
         self.tipo_documento_combo.addItems(["Boleta", "Factura"])
 
-        self.product_view = ProductView(self,cache=self.productos_cache)
-        self.cliente_view = ClienteView(self, self.tipo_documento_combo,cache=self.clientes_cache)
+        self.product_view = ProductView(self, cache=self.productos_cache)
+        self.cliente_view = ClienteView(
+            self, self.tipo_documento_combo, cache=self.clientes_cache
+        )
         self.resumen_view = ResumenView(db=self.db)
 
         self.initUI()
@@ -71,6 +73,8 @@ class BoletaApp(QWidget):
         self.img_label.setPixmap(
             QPixmap("camera_icon.png").scaled(500, 500, Qt.KeepAspectRatio)
         )
+        self.img_label.setFixedSize(300,350)
+
         self.img_label.setAlignment(Qt.AlignCenter)
         self.img_button = QPushButton("Subir Imagen", self)
         # Ahora se asocia correctamente a la instancia
@@ -88,12 +92,27 @@ class BoletaApp(QWidget):
         # Botón de Borrar Todo
         self.borrar_button = QPushButton("Borrar Todo", self)
         self.borrar_button.setStyleSheet(
-            "background-color: red; "
-            "color: white; "
-            "font-size: 12px; "
-            "padding: 12px; "
-            "border-radius: 5px; size: 5px;"
-        )
+                '''
+            QPushButton {
+                background-color: #ff4d4f;
+                color: white;
+                border-radius: 7px;
+                box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+                padding: 8px;
+                margin: 3
+                px;
+            }
+            QPushButton:hover {
+                background-color: darkred;
+            }
+        """
+        """  # Estilo del botón
+            QPushButton:pressed {
+                background-color: lightcoral;
+            }
+
+
+        ''')
         self.borrar_button.clicked.connect(
             self.clean_all
         )  # Conectamos la función de borrar todo
@@ -142,13 +161,24 @@ class BoletaApp(QWidget):
         right_frame.addWidget(self.resumen_view)
         # Botón de Envío
         self.enviar_button = QPushButton("Emitir", self)
-        self.enviar_button.setStyleSheet(
-            "background-color: green; "
-            "color: white; "
-            "font-size: 14px; "
-            "padding: 12px; "
-            "border-radius: 5px;"
-        )
+        self.enviar_button.setStyleSheet("""
+            QPushButton {
+                background-color: #28a745;
+                color: white;
+                font-size: 16px;
+                padding: 12px 24px;
+                border: none;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+            QPushButton:pressed {
+                background-color: #1e7e34;
+            }
+        """)
+
+
         self.enviar_button.setMinimumHeight(40)
         self.enviar_button.clicked.connect(lambda: self.procesar_boleta())
         right_frame.addWidget(self.enviar_button)
@@ -171,9 +201,11 @@ class BoletaApp(QWidget):
                 return
             self.display_image(file_path)
 
-            self.worker=TaskWorker(process_image_to_json, file_path)
+            self.worker = TaskWorker(process_image_to_json, file_path)
             self.worker.finished.connect(self.on_img_processed)
-            self.worker.error.connect(lambda e: QMessageBox.critical(self, "Error", str(e)))
+            self.worker.error.connect(
+                lambda e: QMessageBox.critical(self, "Error", str(e))
+            )
             self.worker.start()
 
         except Exception as e:
@@ -232,7 +264,7 @@ class BoletaApp(QWidget):
         )
 
         logging.info(f"Datos actualizados de boleta: {boleta_data}")
-        #self.enviar_button.setEnabled(False)
+        # self.enviar_button.setEnabled(False)
 
         # Guardamos el worker como atributo
         self.worker = TaskWorker(self.controller.emitir_boleta, boleta_data)
@@ -252,7 +284,7 @@ class BoletaApp(QWidget):
 
     def display_image(self, file_path):
         """Muestra la imagen seleccionada en la interfaz."""
-        pixmap = QPixmap(file_path).scaled(350,350, Qt.KeepAspectRatio)
+        pixmap = QPixmap(file_path).scaled(500, 500, Qt.KeepAspectRatio)
         self.img_label.setPixmap(pixmap)
 
     def abrir_seleccion_remitente(self):

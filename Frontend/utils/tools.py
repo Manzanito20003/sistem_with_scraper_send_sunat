@@ -11,8 +11,11 @@ abreviaturas = {
     "BOLSA": "BS",
 }
 
+
 class AutComboBox(QComboBox):
-    def __init__(self, parent=None, row=None, cache=None, match_func=None, parse_func=None):
+    def __init__(
+        self, parent=None, row=None, cache=None, match_func=None, parse_func=None
+    ):
         super().__init__(parent)
         self.parent_widget = parent
         self.row = row
@@ -26,11 +29,12 @@ class AutComboBox(QComboBox):
         self.setMinimumWidth(235)
         self.activated.connect(self.on_item_selected)
 
-        #DEBUG
-        logging.debug(f" data_cache: {self.data_cache}\n"
-                      f" match_func: {self.match_func}\n"
-                      f" parse_func: {self.parse_func}")
-
+        # DEBUG
+        logging.debug(
+            f" data_cache: {self.data_cache}\n"
+            f" match_func: {self.match_func}\n"
+            f" parse_func: {self.parse_func}"
+        )
 
     def showPopup(self):
         texto = self.currentText()
@@ -67,12 +71,16 @@ class AutComboBox(QComboBox):
         else:
             print("⚠️ La fila (row) es None o no se pasó correctamente.")
 
+
 # 🔧 Parsers
+
 
 def parse_productos(data):
     resultado = []
     for row in data:
-        id_producto, nombre, unidad, precio, igv = row[:5]  # Solo tomamos los 5 primeros
+        id_producto, nombre, unidad, precio, igv = row[
+            :5
+        ]  # Solo tomamos los 5 primeros
         abrev = abreviaturas.get(unidad, unidad)
         estado_igv = "Sí" if igv == 1 else "No"
         texto = f"{nombre} | S/ {precio:.2f} | {abrev} | {estado_igv}"
@@ -89,6 +97,7 @@ def parse_cliente(data):
         valor = (nombre, dni, ruc, id_cliente)
         resultado.append((texto, valor))
     return resultado
+
 
 # ▶️ Ejecutar app
 if __name__ == "__main__":

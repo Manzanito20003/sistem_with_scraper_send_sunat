@@ -1,4 +1,5 @@
 """ "Archivo principal que lanza la aplicación de boletas con PyQt5."""
+
 from datetime import datetime
 import logging
 import sys
@@ -18,10 +19,7 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.FileHandler(log_file, encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+    handlers=[logging.FileHandler(log_file, encoding="utf-8"), logging.StreamHandler()],
 )
 
 

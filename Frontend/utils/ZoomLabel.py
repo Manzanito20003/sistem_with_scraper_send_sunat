@@ -41,10 +41,7 @@ class ZoomLabel(QLabel):
             y = max(self.zoom_radius, min(y, self.height() - self.zoom_radius))
 
             src_rect = self.pixmap_original.copy(
-                x - self.zoom_radius,
-                y - self.zoom_radius,
-                zoom_size,
-                zoom_size
+                x - self.zoom_radius, y - self.zoom_radius, zoom_size, zoom_size
             )
 
             # Escalamos la porción con zoom
@@ -52,7 +49,7 @@ class ZoomLabel(QLabel):
                 zoom_size * self.zoom_factor,
                 zoom_size * self.zoom_factor,
                 Qt.KeepAspectRatio,
-                Qt.FastTransformation
+                Qt.FastTransformation,
             )
 
             # Coordenadas para dibujar la lupa centrada en el cursor
@@ -71,6 +68,7 @@ class ZoomLabel(QLabel):
 
     def _circular_clip(self, center: QPoint, radius: int):
         from PyQt5.QtGui import QPainterPath
+
         path = QPainterPath()
         path.addEllipse(center, radius, radius)
         return path

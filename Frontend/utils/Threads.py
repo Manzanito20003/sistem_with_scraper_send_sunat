@@ -23,11 +23,11 @@ class TaskWorker(QThread):
 
 
 if __name__ == "__main__":
-    #TEST HILOS
+    # TEST HILOS
     app = QApplication(sys.argv)
 
     def example_task(x, y):
-        #time.sleep(20)  # Para prueba pon 2 segundos, no 200
+        # time.sleep(20)  # Para prueba pon 2 segundos, no 200
         return x + y
 
     worker = TaskWorker(example_task, 5, 10)

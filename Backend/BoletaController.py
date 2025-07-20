@@ -38,40 +38,44 @@ class BoletaController:
         return True, ""
 
     def armar_boleta_data(
-            self,
-            cliente_view,
-            product_view,
-            resumen_view,
-            selected_remitente_id,
-            tipo_documento_combo,
+        self,
+        cliente_view,
+        product_view,
+        resumen_view,
+        selected_remitente_id,
+        tipo_documento_combo,
     ):
-        logging.info("Armar datos de la Boleta...")
-        data_cliente = cliente_view.obtener_datos_cliente()
-        data_producto = product_view.obtener_datos_producto()
-        data_resumen = resumen_view.obtener_datos_resumen()
-        logging.debug(
-            f"Datos de boleta: {data_cliente, data_producto, data_resumen, selected_remitente_id, tipo_documento_combo}")
-        if data_producto is None:
-            logging.error("No hay productos en la boleta.")
-            raise ValueError("Faltan productos en la boleta.")
-        if data_cliente is None:
-            logging.error("No hay data en cliente")
-            raise ValueError("Faltan datos del cliente en la boleta.")
+        try:
+            logging.info("Armar datos de la Boleta...")
+            data_cliente = cliente_view.obtener_datos_cliente()
+            data_producto = product_view.obtener_datos_producto()
+            data_resumen = resumen_view.obtener_datos_resumen()
+            logging.debug(
+                f"Datos de boleta: {data_cliente, data_producto, data_resumen, selected_remitente_id, tipo_documento_combo}"
+            )
+            if data_producto is None:
+                logging.error("No hay productos en la boleta.")
+                raise ValueError("Faltan productos en la boleta.")
+            if data_cliente is None:
+                logging.error("No hay data en cliente")
+                raise ValueError("Faltan datos del cliente en la boleta.")
 
-        if data_resumen is None:
-            logging.error("No hay data en resumen de la venta")
-            raise ValueError("Faltan datos del resumen de la boleta.")
+            if data_resumen is None:
+                logging.error("No hay data en resumen de la venta")
+                raise ValueError("Faltan datos del resumen de la boleta.")
 
-        return {
-            "cliente": data_cliente,
-            "productos": data_producto,
-            "resumen": data_resumen,
-            "fecha": cliente_view.obtener_fecha(),
-            "id_cliente": str(cliente_view.id_cliente_sugerido),
-            "id_remitente": str(selected_remitente_id),
-            "tipo_documento": tipo_documento_combo.upper(),
-        }
-
+            return {
+                "cliente": data_cliente,
+                "productos": data_producto,
+                "resumen": data_resumen,
+                "fecha": cliente_view.obtener_fecha(),
+                "id_cliente": str(cliente_view.id_cliente_sugerido),
+                "id_remitente": str(selected_remitente_id),
+                "tipo_documento": tipo_documento_combo.upper(),
+            }
+        except Exception as e:
+            logging.error(f"Error al armar los datos de la boleta: {e}")
+            raise ValueError("Error al armar los datos de la boleta.") from e
     def enviar_boleta(self, data):
         """Guarda los datos de la boleta en la base de datos y la envía a SUNAT."""
 
@@ -126,9 +130,7 @@ class BoletaController:
             )
             return
 
-
-
-    #---- DB  ---
+    # ---- DB  ---
     def match_fuzzy(self, data: List[Tuple], query: str) -> List[Tuple]:
         """
         Productos ((id, nombre, unidad, precio, igv, ...)) -> ejemplo
@@ -138,14 +140,11 @@ class BoletaController:
             return []
 
         data_names = [str(item[1]).lower() for item in data]
-        query= query.lower()
+        query = query.lower()
 
         # Buscar coincidencias aproximadas
         results = process.extract(
-            query,
-            data_names,
-            scorer=fuzz.WRatio,
-            score_cutoff=60
+            query, data_names, scorer=fuzz.WRatio, score_cutoff=60
         )
 
         # Emparejar con los productos originales
@@ -156,7 +155,6 @@ class BoletaController:
 
         # Retornar los mejores 5 resultados (ordenados por score descendente)
         return sorted(matches_with_confidence, key=lambda x: x[-1], reverse=True)[:5]
-
 
 
 if __name__ == "__main__":
@@ -172,9 +170,9 @@ if __name__ == "__main__":
     # 🔹 Query a buscar
     query = "arros superor"  # mal escrito
 
-
     class DummyDB:
         pass
+
     controller = BoletaController(DummyDB())
     result = controller.match_fuzzy(sample_data, query)
 
@@ -182,4 +180,3 @@ if __name__ == "__main__":
     print("Resultados encontrados:")
     for match in result:
         print(match)
-
