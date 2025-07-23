@@ -96,6 +96,7 @@ class DatabaseManager:
             (name, ruc, user, password),
         )
         self.conn.commit()
+        
 
     def insert_client(self, name, dni, ruc):
         """Inserta un nuevo cliente o devuelve ID si ya existe."""
@@ -175,6 +176,11 @@ class DatabaseManager:
         self.cursor.execute("SELECT * FROM clients")
         return self.cursor.fetchall()
 
+    def get_products_by_sender(self,id_sender=None):
+        print("[debug] Obteniendo productos para el remitente:", id_sender)
+        self.cursor.execute("SELECT * FROM products where id_sender = ?", (id_sender,))
+        return self.cursor.fetchall()
+    
     def get_products(self):
         self.cursor.execute("SELECT * FROM products")
         return self.cursor.fetchall()
@@ -242,11 +248,11 @@ class DatabaseManager:
         self.cursor.execute("DELETE FROM clients WHERE id = ?", (id_client,))
         self.conn.commit()
 
-    def delete_product(self, id_product):
-        self.cursor.execute("DELETE FROM products WHERE id = ?", (id_product,))
+    def delete_product_by_sender(self,id_sender, id_product):
+        self.cursor.execute("DELETE FROM products WHERE id = ? and id_sender=?", (id_product,id_sender,))
         self.conn.commit()
 
-    def delete_invoice(self, id_invoice):
+    def delete_invoice(self, id_sender,id_invoice):
         self.cursor.execute("DELETE FROM invoices WHERE id = ?", (id_invoice,))
         self.conn.commit()
 
@@ -297,13 +303,44 @@ class DatabaseManager:
         self.cursor.execute("SELECT id, name FROM sender")
         senders = self.cursor.fetchall()
         return senders
-
-
+    def test_data_user(self):
+        """Prueba de conexión a la base de datos."""
+        self.insert_sender
+        
 
 if __name__ == "__main__":
     db_manager = DatabaseManager()
     
+    from dotenv import load_dotenv
+    import os
+
+    load_dotenv()
+
+    # Obtener usuarios de prueba
+    user1 = {
+        "name": os.getenv("TEST_USER_1_NAME"),
+        "ruc": os.getenv("TEST_USER_1_RUC"),
+        "user": os.getenv("TEST_USER_1_USER"),
+        "password": os.getenv("TEST_USER_1_PASSWORD")
+    }
+    user2 = {
+        "name": os.getenv("TEST_USER_2_NAME"),
+        "ruc": os.getenv("TEST_USER_2_RUC"),
+        "user": os.getenv("TEST_USER_2_USER"),
+        "password": os.getenv("TEST_USER_2_PASSWORD")
+    }
+
+    db_manager.insert_sender(
+        user1["name"], user1["ruc"], user1["user"], user1["password"]
+    )
+    db_manager.insert_sender(
+        user2["name"], user2["ruc"], user2["user"], user2["password"]
+    )
+    
+
+    """
     #db_manager.delete_all_data()  # Limpia la base de datos para pruebas
     db_manager.create_tables()  # Crea las tablas nuevamente
     db_manager.close()
-    print("Base de datos y tablas creadas correctamente.")
+    print(" tablas creadas correctamente.")
+    """

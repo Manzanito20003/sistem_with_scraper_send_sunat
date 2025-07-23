@@ -33,6 +33,8 @@ def slow_typing(element, text, delay=0.1):
 
 def get_client(id):
     """Obtiene los datos del cliente desde DB"""
+
+
     sender = db.get_sender_by_id(id)
     logging.info(f"sende: {sender}")
     if sender:
@@ -234,7 +236,8 @@ def emitir_boleta(driver, data):
         )
         input_tipo_documento.clear()
 
-        if dni != "":
+        print(f"dni :{dni} type:{type(dni)}")
+        if dni is not None :
             logging.info("Emitiendo con dni ")
             input_tipo_documento.send_keys("DOC. NACIONAL DE IDENTIDAD")
             input_tipo_documento.send_keys(Keys.RETURN)
@@ -388,9 +391,13 @@ def emitir_factura(driver, data):
         logging.critical(f"Error inesperado: {e}")
 
 
-def send_billing_sunat(data, sender_id=1):
+def send_billing_sunat(data):
     """Envía la boleta a la SUNAT utilizando un navegador automatizado."""
     logging.info("Iniciando proceso de emisión en SUNAT...")
+    sender_id=data.get("id_remitente", None)
+    if sender_id is None:
+        logging.critical("No se ha proporcionado un ID de remitente.")
+        return
     logging.info(f"Datos cargados correctamente: {data}")
     if "productos" not in data or len(data["productos"]) == 0:
         logging.critical(
@@ -434,12 +441,7 @@ def send_billing_sunat(data, sender_id=1):
 def validate_importe_all(driver, total):
     """
     Validates that the total value in the input box matches the expected total.
-
-    :param driver: WebDriver instance
-    :param total: Expected total as a string
-    :return: True if the value matches the expected total, False otherwise
     """
-    global actual_value
     try:
         input_total = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.ID, "boleta.totalGeneral2"))
@@ -447,6 +449,7 @@ def validate_importe_all(driver, total):
         actual_value = float(input_total.get_attribute("value").replace("S/ ", ""))
 
         # Compara el valor obtenido con el valor esperado
+        print("[DEBUG] Valor actual:", actual_value,"total: ",total)
         if float(actual_value) == float(total):
             logging.info("El valor de la caja coincide con el total esperado.")
     except Exception as e:
@@ -574,4 +577,45 @@ if __name__ == "__main__":
         "tipo_documento": "FACTURA",
     }
 
-    send_billing_sunat(test_sin_dni, sender_id=2)
+
+    ##test sende :
+    test_sende={
+        "cliente": {
+            "nombre": "TONFAY COMPANY",
+            "dni": None,
+            "ruc": None
+        },
+        "productos": [
+            {
+                "cantidad": 2,
+                "descripcion": "GOLARINA GULLITO F+N",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 32.0,
+                "igv": 0.0,
+                "igv_total": 0.0,
+                "precio_total": 64.0
+            },
+            {
+                "cantidad": 1,
+                "descripcion": "GOLATINA ZONTA GUIN",
+                "unidad_medida": "KILOGRAMO",
+                "precio_base": 36.0,
+                "igv": 0.0,
+                "igv_total": 0.0,
+                "precio_total": 36.0
+            }
+        ],
+        "resumen": {
+            "serie": "F03-01",
+            "numero": "01",
+            "sub_total": 100.0,
+            "igv_total": 0.0,
+            "total": 100.0
+        },
+        "fecha": "22/07/2025",
+        "id_remitente": "3",
+        "id_cliente": "None",
+        "tipo_documento": "BOLETA"
+    }
+
+    send_billing_sunat(test_sende, sender_id=3)

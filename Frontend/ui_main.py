@@ -25,10 +25,13 @@ from Frontend.utils.Threads import TaskWorker
 from Backend.BoletaController import BoletaController
 from Backend.utils.img_to_json import process_image_to_json
 from DataBase.DatabaseManager import DatabaseManager
-from Frontend.cliente_view import ClienteView
-from Frontend.producto_view import ProductView
-from Frontend.remitente_dialog import RemitenteDialog
-from Frontend.resumen_view import ResumenView
+from Frontend.views.cliente_view import ClienteView
+from Frontend.views.producto_view import ProductView
+from Frontend.views.resumen_view import ResumenView
+
+from Frontend.dialogs.remitente_dialog import RemitenteDialog
+from Frontend.dialogs.productos_dialog import ProductosDialog
+
 from Frontend.utils.ZoomLabel import ZoomLabel
 
 
@@ -304,7 +307,7 @@ class BoletaApp(QMainWindow):
 
     def procesar_boleta(self):
         logging.info("Procesando boleta...")
-
+        print("[DEBUG] selected_remitente_id",self.selected_remitente_id)
         ok, msg = self.controller.validar_envio(
             self.selected_remitente_id, self.cliente_view
         )
@@ -400,7 +403,12 @@ class BoletaApp(QMainWindow):
 
     #---- Métodos de los menús ----
     def abrir_productos(self):
-        QMessageBox.information(self, "Productos", "Aquí se abrirá el gestor de productos.")
+        if self.selected_remitente_id is None:
+            QMessageBox.warning(self, "Error", "Debes seleccionar un remitente primero")
+            return
+        print("[Debug] abrir productos - remitente_id:", self.selected_remitente_id)
+        dlg = ProductosDialog(self.controller, self.selected_remitente_id, parent=self)
+        dlg.exec_()  # si quieres que se abra como diálogo modal
 
     def abrir_clientes(self):
         QMessageBox.information(self, "Clientes", "Aquí se abrirá el gestor de clientes.")

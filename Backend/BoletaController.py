@@ -23,6 +23,8 @@ class BoletaController:
             return False
 
         logging.info("Boleta validada correctamente, enviando a SUNAT...")
+        logging.info("Datos de la boleta: %s", boleta_data.dict())
+
         send_billing_sunat(boleta_data.dict())
         return True
 
@@ -170,8 +172,62 @@ class BoletaController:
             return True
         except Exception as e:
             logging.error(f"Error al agregar remitente: {e}")
-            return None        
-
+            return None  
+    def agregar_product(self,id_sender, name, unit, price, igv):
+        """
+        Agrega un nuevo producto a la base de datos.
+        Retorna el ID del producto agregado.
+        """
+        if not name or not unit or price is None:
+            logging.error("Nombre, unidad y precio son obligatorios.")
+            return None
+        try:
+            product_id = self.db.insert_product(id_sender, name, unit, price, igv)
+            logging.info(f"Producto '{name}' agregado correctamente con ID: {product_id}")
+            return product_id
+        except Exception as e:
+            logging.error(f"Error al agregar producto: {e}")
+            return None
+    def ver_productos(self, id_sender):
+        """
+        Obtiene todos los productos de un remitente específico.
+        Retorna una lista de productos.
+        """
+        try:
+            productos = self.db.get_products_by_sender(id_sender)
+            logging.info(f"Productos obtenidos para el remitente ID {id_sender}.")
+            return productos
+        except Exception as e:
+            logging.error(f"Error al obtener productos: {e} sender : {id_sender}")
+            return []
+    def borrar_product(self, id_sender,id_product):
+        """
+        Borra un producto de la base de datos por su ID.
+        Retorna True si se borró correctamente, False en caso contrario.
+        """
+        try:
+            self.db.delete_product_by_sender(id_sender,id_product)
+            logging.info(f"Producto con ID {id_product} borrado correctamente.")
+            return True
+        except Exception as e:
+            logging.error(f"Error al borrar producto: {e}")
+            return False 
+                 
+    def actualizar_product(self, id_sender, id_product, name, unit, price, igv):
+        """
+        Actualiza un producto existente en la base de datos.
+        Retorna True si se actualizó correctamente, False en caso contrario.
+        """
+        if not name or not unit or price is None:
+            logging.error("Nombre, unidad y precio son obligatorios.")
+            return False
+        try:
+            self.db.update_product( id_product,id_sender, name, unit, price, igv)
+            logging.info(f"Producto con ID {id_product} actualizado correctamente.")
+            return True
+        except Exception as e:
+            logging.error(f"Error al actualizar producto: {e}")
+            return False
 
 if __name__ == "__main__":
     # Datos de prueba (id, nombre, otro campo opcional)

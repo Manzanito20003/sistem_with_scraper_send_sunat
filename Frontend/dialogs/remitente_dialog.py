@@ -61,7 +61,7 @@ class RemitenteDialog(QDialog):
                 print("[WARNING] Ningún remitente seleccionado.")
                 QMessageBox.warning(self, "Advertencia", "Seleccione un remitente.")
                 return
-
+            print("[INFO] Remitente seleccionado:", selected_items)
             nombre_seleccionado = selected_items[0].text()
             remitente_id = self.remitentes.get(nombre_seleccionado)
 
