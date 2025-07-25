@@ -139,7 +139,7 @@ class ClienteView(QWidget):
 
     def obtener_datos_cliente(self):
         """Retorna un diccionario limpio con los datos del cliente."""
-        nombre = self.nombre_entry.currentText().strip()
+        nombre = self.nombre_entry.currentText().strip().upper()
         dni = self.num_doc_entry.text().strip()
         ruc = self.ruc_cliente.text().strip()
         return {

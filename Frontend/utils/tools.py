@@ -32,15 +32,16 @@ class AutComboBox(QComboBox):
         # DEBUG
         logging.debug(
             f" data_cache: {self.data_cache}\n"
-            f" match_func: {self.match_func}\n"
-            f" parse_func: {self.parse_func}"
         )
 
     def showPopup(self):
+        print("activando showpopup")
         texto = self.currentText()
         self.clear()
         self.addItem(texto)
-        self.parsear_data_to_combo(self.matching_items(texto))
+        match=self.matching_items(texto)
+        print("[DEBUG] match:",match)
+        self.parsear_data_to_combo(match)
         super().showPopup()
 
     def matching_items(self, text):
@@ -76,11 +77,13 @@ class AutComboBox(QComboBox):
 
 
 def parse_productos(data):
+    print("DATA:",data)
     resultado = []
     for row in data:
-        id_producto, nombre, unidad, precio, igv = row[
-            :5
-        ]  # Solo tomamos los 5 primeros
+        id_producto,_, nombre, unidad, precio, igv = row[
+            :6
+        ]  # Solo tomamos los 6 primeros
+
         abrev = abreviaturas.get(unidad, unidad)
         estado_igv = "Sí" if igv == 1 else "No"
         texto = f"{nombre} | S/ {precio:.2f} | {abrev} | {estado_igv}"
@@ -90,9 +93,10 @@ def parse_productos(data):
 
 
 def parse_cliente(data):
+    print("TEST data: ,",data)
     resultado = []
     for row in data:
-        id_cliente, nombre, dni, ruc = row[:4]
+        id_cliente,_, nombre, dni, ruc = row[:5]
         texto = f"{nombre} | DNI: {dni or '-'} | RUC: {ruc or '-'}"
         valor = (nombre, dni, ruc, id_cliente)
         resultado.append((texto, valor))

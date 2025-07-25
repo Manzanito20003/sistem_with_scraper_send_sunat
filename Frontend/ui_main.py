@@ -20,6 +20,8 @@ from PyQt5.QtWidgets import (
     QAction,
     QMainWindow   # migramos
 )
+
+from Frontend.dialogs.historial_dialog import HistorialDialog
 from Frontend.utils.Threads import TaskWorker
 
 from Backend.BoletaController import BoletaController
@@ -29,8 +31,9 @@ from Frontend.views.cliente_view import ClienteView
 from Frontend.views.producto_view import ProductView
 from Frontend.views.resumen_view import ResumenView
 
-from Frontend.dialogs.remitente_dialog import RemitenteDialog
+from Frontend.dialogs.select_remitente_dialog import SelectRemitenteDialog
 from Frontend.dialogs.productos_dialog import ProductosDialog
+from Frontend.dialogs.remitente_dialog import RemitenteDialog
 
 from Frontend.utils.ZoomLabel import ZoomLabel
 
@@ -69,18 +72,15 @@ class BoletaApp(QMainWindow):
     def initUI(self):
         self.crear_menubar()
         layout_principal = QVBoxLayout()  # Nuevo layout contenedor
-
-
         main_layout = QHBoxLayout()
         # Frame izquierdo
         left_frame = QVBoxLayout()
-
         # Sección de Imagen
         self.img_label = ZoomLabel(self)
         self.img_label.setPixmap(
             QPixmap("camera_icon.png").scaled(500, 500, Qt.KeepAspectRatio)
         )
-        self.img_label.setFixedSize(300,350)
+        self.img_label.setMinimumSize(300,350)
 
         self.img_label.setAlignment(Qt.AlignCenter)
         self.img_button = QPushButton("Subir Imagen", self)
@@ -216,12 +216,6 @@ class BoletaApp(QMainWindow):
         action_ver_historial.triggered.connect(self.abrir_historial)
         menu_historial.addAction(action_ver_historial)
 
-        # ─── Menú Estadísticas ───
-        menu_stats = menubar.addMenu("Estadísticas")
-        action_stats = QAction("Visualizar estadísticas", self)
-        action_stats.triggered.connect(self.abrir_estadisticas)
-        menu_stats.addAction(action_stats)
-
         # ─── Menú Ayuda ───
         menu_ayuda = menubar.addMenu("Ayuda")
         menu_ayuda.addAction("Acerca de", lambda: QMessageBox.information(self, "Acerca de", "Sistema de Boletas v1.0"))
@@ -254,11 +248,16 @@ class BoletaApp(QMainWindow):
         logging.info(" Iniciando función subir_imagen...")
         try:
             # Selección de archivo
-            file_path, _ = QFileDialog.getOpenFileName()
+            file_path, _ = QFileDialog.getOpenFileName(
+                None,
+                "Seleccionar archivo",
+                "",
+                "Archivos soportados (*.png *.jpg *.jpeg *.bmp *.pdf)"
+            )
 
             if not file_path:
-                logging.warning(" No se seleccionó ningún archivo.")
-                QMessageBox.critical("Fallo la eleccion de imagen.")
+                logging.warning("No se seleccionó ningún archivo.")
+                QMessageBox.information(self, "Información", "Archivo no seleccionado")
                 return
             self.display_image(file_path)
 
@@ -307,7 +306,6 @@ class BoletaApp(QMainWindow):
 
     def procesar_boleta(self):
         logging.info("Procesando boleta...")
-        print("[DEBUG] selected_remitente_id",self.selected_remitente_id)
         ok, msg = self.controller.validar_envio(
             self.selected_remitente_id, self.cliente_view
         )
@@ -350,7 +348,7 @@ class BoletaApp(QMainWindow):
 
     def abrir_seleccion_remitente(self):
         logging.info(" Abriendo selector de remitente...")
-        dialog = RemitenteDialog(self, self.db)
+        dialog = SelectRemitenteDialog(self, self.db)
         if dialog.exec_() == QDialog.Accepted:
             logging.info(" Remitente seleccionado correctamente.")
 
@@ -408,21 +406,19 @@ class BoletaApp(QMainWindow):
             return
         print("[Debug] abrir productos - remitente_id:", self.selected_remitente_id)
         dlg = ProductosDialog(self.controller, self.selected_remitente_id, parent=self)
-        dlg.exec_()  # si quieres que se abra como diálogo modal
+        dlg.exec_()
 
     def abrir_clientes(self):
         QMessageBox.information(self, "Clientes", "Aquí se abrirá el gestor de clientes.")
 
     def abrir_remitentes(self):
-        dlg = RemitenteDialog(self, self.db)
+        dlg = RemitenteDialog(parent=self, controller=self.controller)
         dlg.exec_()
 
     def abrir_historial(self):
+
         if not self.selected_remitente_id:
             QMessageBox.warning(self, "Error", "Debes seleccionar un remitente primero")
             return
-        QMessageBox.information(self, "Historial", f"Historial para remitente ID {self.selected_remitente_id}")
-
-    def abrir_estadisticas(self):
-        QMessageBox.information(self, "Estadísticas", "Aquí se mostrarán los gráficos.")
-
+        dlg = HistorialDialog(parent=self,controller=self.controller,id_sender=self.selected_remitente_id)
+        dlg.exec_()

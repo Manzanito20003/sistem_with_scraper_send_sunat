@@ -23,6 +23,7 @@ logging.getLogger("selenium").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
+
 def slow_typing(element, text, delay=0.1):
     """tipear lento para undected"""
     # for char in text:
@@ -236,7 +237,6 @@ def emitir_boleta(driver, data):
         )
         input_tipo_documento.clear()
 
-        print(f"dni :{dni} type:{type(dni)}")
         if dni is not None :
             logging.info("Emitiendo con dni ")
             input_tipo_documento.send_keys("DOC. NACIONAL DE IDENTIDAD")
@@ -289,7 +289,9 @@ def emitir_boleta(driver, data):
         for producto in data["productos"]:
             agregar_producto(driver, producto, tipo_documento="Boleta")
         total = data["resumen"]["total"]
-        validate_importe_all(driver, total)
+        succes =validate_importe_all(driver, total)
+        if not succes:
+            return None
 
         logging.info("boleta emitido correctamente")
     except TimeoutException:
@@ -439,21 +441,23 @@ def send_billing_sunat(data):
 
 
 def validate_importe_all(driver, total):
-    """
-    Validates that the total value in the input box matches the expected total.
-    """
     try:
+        time.sleep(1)
         input_total = WebDriverWait(driver, 20).until(
-            EC.presence_of_element_located((By.ID, "boleta.totalGeneral2"))
+            EC.presence_of_element_located((By.ID, "boleta.totalGeneral"))
         )
+
         actual_value = float(input_total.get_attribute("value").replace("S/ ", ""))
 
-        # Compara el valor obtenido con el valor esperado
-        print("[DEBUG] Valor actual:", actual_value,"total: ",total)
-        if float(actual_value) == float(total):
-            logging.info("El valor de la caja coincide con el total esperado.")
+        if abs(actual_value - float(total)) < 0.001:
+            logging.info(f"Importe correcto: {actual_value} ≈ {total}")
+            return True
+        else:
+            logging.warning(f"Importe distinto: {actual_value} vs {total}")
+            return False
+
     except Exception as e:
-        logging.critical(f"Error al validar el valor: {e}, {actual_value}!={total}")
+        logging.critical(f"Error al validar el valor: {e}")
 
 
 # Ejecutar el de prueba
@@ -613,9 +617,14 @@ if __name__ == "__main__":
             "total": 100.0
         },
         "fecha": "22/07/2025",
-        "id_remitente": "3",
+        "id_remitente": "2",
         "id_cliente": "None",
         "tipo_documento": "BOLETA"
     }
 
-    send_billing_sunat(test_sende, sender_id=3)
+    logging.basicConfig(
+        level=logging.DEBUG,  # Cambia a INFO si no quieres debug
+        format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+
+    send_billing_sunat(test_sende)

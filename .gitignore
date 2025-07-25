@@ -22,4 +22,7 @@ __pycache__/
 .idea/
 .vscode/
 
+# txt
+*.txt
+
 

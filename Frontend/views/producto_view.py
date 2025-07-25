@@ -239,7 +239,7 @@ class ProductView(QWidget):
 
                 producto = {
                     "cantidad": cantidad,
-                    "descripcion": descripcion,
+                    "descripcion": descripcion.upper(),
                     "unidad_medida": (
                         self.productos_table.cellWidget(row, 1).currentText()
                         if self.productos_table.cellWidget(row, 1)
@@ -422,7 +422,7 @@ class ProductView(QWidget):
 
         # 🔹 Actualizar etiquetas de resumen
         self.parent.resumen_view.actualizar_total_igv_and_importe(
-            total_igv, total_importe
+            total_igv, total_importe-total_igv
         )
 
         logging.info(

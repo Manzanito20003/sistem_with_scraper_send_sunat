@@ -11,15 +11,17 @@ class ResumenView(QWidget):
         self.serie_label = QLabel("Serie: B00-00")
         self.numero_label = QLabel("Número: 00")
         self.igv_label = QLabel("Total IGV: S/ 0.00")
+        self.valor_label = QLabel("Valor Total: S/ 0.00")
         self.total_label = QLabel("Total importe: S/ 0.00")
         self.db = db
         self.initUI()
 
         self.data = {}
-        self.serie = ""
-        self.numero = ""
-        self.igv_total = ""
-        self.total = ""
+        self.serie = None
+        self.numero = None
+        self.igv_total = None
+        self.valor_total =None
+        self.total_importe = None
 
     def initUI(self):
 
@@ -31,6 +33,7 @@ class ResumenView(QWidget):
         resumen_layout.addWidget(self.serie_label)
         resumen_layout.addWidget(self.numero_label)
         resumen_layout.addWidget(self.igv_label)
+        resumen_layout.addWidget(self.valor_label)
         resumen_layout.addWidget(self.total_label)
 
         resumen_box.setLayout(resumen_layout)
@@ -41,12 +44,14 @@ class ResumenView(QWidget):
 
         self.setLayout(main_layout)
 
-    def actualizar_total_igv_and_importe(self, total_igv, total_importe):
+    def actualizar_total_igv_and_importe(self, total_igv, valor_total):
         self.igv_total = total_igv
-        self.total = total_importe
+        self.valor_total = valor_total
+        self.total_importe = total_igv+valor_total
 
         self.igv_label.setText(f"Total IGV: S/ {total_igv:.2f}")
-        self.total_label.setText(f"Total importe: S/ {total_importe:.2f}")
+        self.valor_label.setText(f"Valor Total: S/ {valor_total:.2f}")
+        self.total_label.setText(f"Total importe: S/ {self.total_importe:.2f}")
 
     def actualizar_serie_y_numero(self, id_sender=None, tipo_documento="BOLETA"):
         """Actualiza la serie y número de documento basado en la selección de tipo y el ID del remitente."""
@@ -84,9 +89,9 @@ class ResumenView(QWidget):
         return {
             "serie": self.serie,
             "numero": self.numero,
-            "sub_total": round(self.total - self.igv_total, 2),
+            "sub_total": round(self.valor_total, 2),
             "igv_total": self.igv_total,
-            "total": self.total,
+            "total": self.total_importe,
         }
 
     def clean_all(self):
@@ -94,4 +99,5 @@ class ResumenView(QWidget):
         self.serie_label.setText("Serie: B00-00")
         self.numero_label.setText("Número: 00")
         self.igv_label.setText("Total IGV: S/ 0.00")
+        self.valor_label.setText("Valor Total: S/ 0.00")
         self.total_label.setText("Total importe: S/ 0.00")

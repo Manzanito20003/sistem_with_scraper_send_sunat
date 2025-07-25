@@ -17,7 +17,6 @@ class BoletaController:
         try:
             logging.info("Iniciando validación de boleta...")
             boleta_data = BoletaData(**boleta_data)
-            logging.info("Boleta data validada correctamente.")
         except ValidationError as e:
             logging.error(f"validacion fallida de boleta{e}")
             return False
@@ -25,9 +24,60 @@ class BoletaController:
         logging.info("Boleta validada correctamente, enviando a SUNAT...")
         logging.info("Datos de la boleta: %s", boleta_data.dict())
 
-        send_billing_sunat(boleta_data.dict())
-        return True
+        result = self.guardar_boleta_db(boleta_data.dict())
+        if result is False:
+            return False
 
+        #send_billing_sunat(boleta_data.dict())
+
+        logging.info("Boleta Emitida correctamente :)")
+        return True
+    def guardar_boleta_db(self,data):
+        try:
+            id_remitente=data["id_remitente"]
+            nombre=data["cliente"]["nombre"]
+            dni=data["cliente"]["dni"]
+            ruc=data["cliente"]["ruc"]
+            id_cliente=self.db.insert_client(id_remitente,nombre,dni,ruc)
+            logging.info("Insertado cliente ")
+            #-- guardar factura--
+            total=data["resumen"]["total"]
+            igv_total=data["resumen"]["igv_total"]
+
+            #-- guardar invoice--
+            serie=data["resumen"]["serie"]
+            numero=data["resumen"]["numero"]
+            emision_fecha=data["fecha"]
+            tipo = data["tipo_documento"]
+            invoice_id=self.db.insert_invoice(id_cliente,
+                                              id_remitente,
+                                              total,
+                                              igv_total,
+                                              tipo,
+                                              serie,
+                                              numero,
+                                              emision_fecha)
+            logging.info("Insertado invoice ")
+
+            #-- guardar detailes--
+            productos=data["productos"]
+            for p in productos:
+                cantidad = p["cantidad"]
+                descripcion = p["descripcion"]
+                unidad = p["unidad_medida"].upper()
+                precio = p["precio_base"]
+                igv = p["igv"]
+                total = p["precio_total"]
+
+                product_id = self.db.insert_product(id_remitente, descripcion, unidad, precio, igv)
+                self.db.insert_invoice_detail(invoice_id, product_id, cantidad, total)
+
+            logging.info("Insertado productos y details")
+            logging.info("Data guardada correctamente BD")
+            return True
+        except Exception as e:
+            logging.error("Hubo un error en guardar en BD %s",e)
+            return False
     def validar_envio(self, remitente_id, cliente_view):
 
         if remitente_id is None:
@@ -78,70 +128,18 @@ class BoletaController:
         except Exception as e:
             logging.error(f"Error al armar los datos de la boleta: {e}")
             raise ValueError("Error al armar los datos de la boleta.") from e
-    def enviar_boleta(self, data):
-        """Guarda los datos de la boleta en la base de datos y la envía a SUNAT."""
-
-        id_client = data["id_cliente"]
-        id_sender = data["id_remitente"]
-
-        logging.info("Iniciando proceso de emisión de boleta...")
-        logging.info(f"ID del remitente: {id_sender}")
-
-        try:
-            logging.debug("sunat data")
-            send_billing_sunat(data, id_sender)
-            logging.info("Boleta enviada a SUNAT correctamente.")
-        except Exception as e:
-            logging.error(f"Fallo en la emisión ante SUNAT. Detalle: {e}")
-
-        if id_client is None:
-            cliente = data["cliente"]
-            id_client = self.db.insert_client(
-                cliente["nombre"],
-                cliente["dni"] if cliente["dni"] else None,
-                cliente["ruc"] if cliente["ruc"] else None,
-            )
-            logging.info(f" Cliente registrado con ID: {id_client}")
-        if id_client is None or id_sender is None:
-            logging.error("No se pudo continuar. ID Cliente o ID Sender es None.")
-            return
-
-        # Cálculo del total de la boleta
-        total_pagado = data["resumen"].get("total", 0)
-        igv_total = data["resumen"].get("igv_total", 0)
-        logging.info(
-            f"Total Boleta: S/ {total_pagado:.2f}, Total IGV: S/ {igv_total:.2f}"
-        )
-
-        try:
-            for producto in data["productos"]:
-                self.db.insert_product(
-                    id_sender,
-                    producto.get("descripcion"),
-                    producto.get("unidad_medida"),
-                    producto.get("precio_base"),
-                    producto.get("igv"),
-                )
-            self.db.insert_invoice(id_client, id_sender, total_pagado, igv_total)
-            logging.info(
-                f"Boleta registrada correctamente en BD. (Cliente ID: {id_client}, Remitente ID: {id_sender})"
-            )
-        except Exception as e:
-            logging.error(
-                f"No se pudo completar la inserción de productos o la boleta. Detalle: {e}"
-            )
-            return
-
     # ---- DB  ---
     def match_fuzzy(self, data: List[Tuple], query: str) -> List[Tuple]:
         """
         Productos ((id, nombre, unidad, precio, igv, ...)) -> ejemplo
         Busca coincidencias aproximadas del nombre de producto con la query.
         """
+        print("entando a match_fuzzy")
+        print("data:",data,"quey:",query)
         if query == "":
             return []
 
-        data_names = [str(item[1]).lower() for item in data]
+        data_names = [str(item[2]).lower() for item in data]
         query = query.lower()
 
         # Buscar coincidencias aproximadas
@@ -157,7 +155,7 @@ class BoletaController:
 
         # Retornar los mejores 5 resultados (ordenados por score descendente)
         return sorted(matches_with_confidence, key=lambda x: x[-1], reverse=True)[:5]
-
+    #--- SENDERS ----
     def agregar_sender(self, nombre: str, ruc: str, user: str,password:str) -> bool:
         """
         Agrega un nuevo remitente a la base de datos.
@@ -172,7 +170,39 @@ class BoletaController:
             return True
         except Exception as e:
             logging.error(f"Error al agregar remitente: {e}")
-            return None  
+            return None
+    def ver_senders(self):
+        try:
+            senders = self.db.get_senders()
+            logging.info("Remitentes obtenidos correctamente.")
+            return senders
+        except Exception as e:
+            logging.error("Error al obtener remitentes: %s",e)
+            return None
+    def borrar_sender(self, id_sender: int) -> bool:
+        try:
+            self.db.delete_sender(id_sender)
+            logging.info(f"Remitente con ID {id_sender} borrado correctamente.")
+            return True
+        except Exception as e:
+            logging.error(f"Error al borrar remitente: {e}")
+            return False
+    def actualizar_sender(self, id_sender: int, nombre: str, ruc: str, user: str, password: str) -> bool:
+        if not nombre or not ruc or not user or not password:
+            logging.error("Nombre, RUC, user y password son obligatorios.")
+            return False
+        if  not id_sender:
+            logging.error("Fallo al pasar id_sender: %s",id_sender)
+            return False
+        try:
+            self.db.update_sender(id_sender, nombre, ruc, user, password)
+            logging.info("Remitente con ID %s actualizado correctamente.",id_sender)
+            return True
+        except Exception as e:
+            logging.error(f"Error al actualizar remitente: {e}")
+            return False
+
+    #---- PRODUCTOS ----
     def agregar_product(self,id_sender, name, unit, price, igv):
         """
         Agrega un nuevo producto a la base de datos.
@@ -228,6 +258,19 @@ class BoletaController:
         except Exception as e:
             logging.error(f"Error al actualizar producto: {e}")
             return False
+
+    def ver_histoial_id_sender(self,id_sender):
+        try:
+            return self.db.get_invoices_by_sender_id(id_sender)
+        except Exception as e:
+            logging.error("fallo al extraer el historial para id_sender=%s, error=%s", id_sender, e)
+            return []
+    def ver_invoice_details(self,invoice_id):
+        try:
+            return self.db.get_invoice_details(invoice_id)
+        except Exception as e:
+            logging.error("fallo al extraer details de historia")
+            return []
 
 if __name__ == "__main__":
     # Datos de prueba (id, nombre, otro campo opcional)

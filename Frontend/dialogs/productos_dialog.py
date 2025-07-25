@@ -50,10 +50,11 @@ class ProductosDialog(QDialog):
 
         # Tabla
         self.tabla = QTableWidget()
-        self.tabla.setColumnCount(6) 
-
+        self.tabla.setColumnCount(6)
         self.tabla.setEditTriggers(QTableWidget.AllEditTriggers)
         self.tabla.setHorizontalHeaderLabels(["ID", "Nombre", "Unidad", "Precio", "IGV", "Total"])
+        self.tabla.setColumnWidth(1, 265)
+        self.tabla.setAlternatingRowColors(True)
         layout.addWidget(self.tabla)
 
         self.setLayout(layout)
