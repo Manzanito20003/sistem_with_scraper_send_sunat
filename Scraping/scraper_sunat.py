@@ -1,5 +1,4 @@
 """Scraping de la pagina de Sunat para enviar una boleta con .json"""
-
 import logging
 import os
 import time
@@ -23,20 +22,15 @@ logging.getLogger("selenium").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
-
-def slow_typing(element, text, delay=0.1):
+def slow_typing(element, text):
     """tipear lento para undected"""
-    # for char in text:
-    #     element.send_keys(char)
-    #     time.sleep(delay)
     element.send_keys(text)
 
 
-def get_client(id):
+def get_client(id_sender):
     """Obtiene los datos del cliente desde DB"""
 
-
-    sender = db.get_sender_by_id(id)
+    sender = db.get_sender_by_id(id_sender)
     logging.info(f"sende: {sender}")
     if sender:
         ruc = sender[2]
@@ -138,7 +132,7 @@ def agregar_producto(driver, producto, tipo_documento):
 
 
 # Función para configurar el WebDriver
-def configurar_driver(headless=True):
+def configurar_driver():
     """Configurar el WebDriver de Chrome con las opciones adecuadas."""
     logging.info("Configurando Drivers")
     load_dotenv()
@@ -188,9 +182,9 @@ def iniciar_sesion(driver, sender_id=1):
         MY_RUC, MY_USER, MY_PASS = get_client(sender_id)
 
         # Ingresar credenciales
-        slow_typing(ruc_input, MY_RUC, delay=0.2)
-        slow_typing(usuario_input, MY_USER, delay=0.15)
-        slow_typing(contrasena_input, MY_PASS, delay=0.1)
+        slow_typing(ruc_input, MY_RUC)
+        slow_typing(usuario_input, MY_USER)
+        slow_typing(contrasena_input, MY_PASS)
 
         # Clic en "Aceptar"
         iniciar_sesion_button.click()
@@ -219,12 +213,12 @@ def emitir_boleta(driver, data):
         campo_busqueda.send_keys("BOLETA")
 
         # Hacer clic en "Emitir Boleta de Venta"
-        emitir_boleta = WebDriverWait(driver, 20).until(
+        emitir_boleta_driver = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable(
                 (By.XPATH, "//span[contains(text(), 'Emitir Boleta de Venta')]")
             )
         )
-        emitir_boleta.click()
+        emitir_boleta_driver.click()
 
         # Cambiar al iframe de emisión de boleta
         WebDriverWait(driver, 20).until(
@@ -237,7 +231,7 @@ def emitir_boleta(driver, data):
         )
         input_tipo_documento.clear()
 
-        if dni is not None :
+        if dni is not None:
             logging.info("Emitiendo con dni ")
             input_tipo_documento.send_keys("DOC. NACIONAL DE IDENTIDAD")
             input_tipo_documento.send_keys(Keys.RETURN)
@@ -289,7 +283,7 @@ def emitir_boleta(driver, data):
         for producto in data["productos"]:
             agregar_producto(driver, producto, tipo_documento="Boleta")
         total = data["resumen"]["total"]
-        succes =validate_importe_all(driver, total)
+        succes = validate_importe_all(driver, total)
         if not succes:
             return None
 
@@ -352,7 +346,7 @@ def emitir_factura(driver, data):
             "value"
         )
 
-        print(f"Razón Social detectada: {razon_social}")
+        logging.info(f"Razón Social detectada: {razon_social}")
 
         # Seleccionar la dirección (ID corregido)
         add_direccion = WebDriverWait(driver, 20).until(
@@ -381,7 +375,9 @@ def emitir_factura(driver, data):
 
         # Validar importe total TODO: Revisar si es necesario
         total = data["resumen"]["total"]
-        validate_importe_all(driver, total)
+        succes = validate_importe_all(driver, total)
+        if not succes:
+            return None
 
     except TimeoutException:
         logging.error("Tiempo de espera excedido durante la emisión de la factura")
@@ -396,7 +392,7 @@ def emitir_factura(driver, data):
 def send_billing_sunat(data):
     """Envía la boleta a la SUNAT utilizando un navegador automatizado."""
     logging.info("Iniciando proceso de emisión en SUNAT...")
-    sender_id=data.get("id_remitente", None)
+    sender_id = data.get("id_remitente", None)
     if sender_id is None:
         logging.critical("No se ha proporcionado un ID de remitente.")
         return
@@ -441,6 +437,7 @@ def send_billing_sunat(data):
 
 
 def validate_importe_all(driver, total):
+    """validar importe del scraping con total de data"""
     try:
         time.sleep(1)
         input_total = WebDriverWait(driver, 20).until(
@@ -485,7 +482,7 @@ if __name__ == "__main__":
 
     # BOLETA  - CON DNI
     test_con_dni = {
-        "cliente": {"nombre": "TONFAY COMPANY", "dni": "75276980", "ruc": ""},
+        "cliente": {"nombre": "TONFAY COMPANY", "dni": "10121518", "ruc": ""},
         "productos": [
             {
                 "cantidad": 2.0,
@@ -520,7 +517,7 @@ if __name__ == "__main__":
 
     # FACTURA - CON RUC
     test_con_ruc = {
-        "cliente": {"nombre": "JEFERSSON", "dni": "75276980", "ruc": "10752769805"},
+        "cliente": {"nombre": "JEFERSSON", "dni": "10267606", "ruc": "12321312r"},
         "productos": [
             {
                 "cantidad": 2.0,
@@ -581,14 +578,9 @@ if __name__ == "__main__":
         "tipo_documento": "FACTURA",
     }
 
-
     ##test sende :
-    test_sende={
-        "cliente": {
-            "nombre": "TONFAY COMPANY",
-            "dni": None,
-            "ruc": None
-        },
+    test_sende = {
+        "cliente": {"nombre": "TONFAY COMPANY", "dni": None, "ruc": None},
         "productos": [
             {
                 "cantidad": 2,
@@ -597,7 +589,7 @@ if __name__ == "__main__":
                 "precio_base": 32.0,
                 "igv": 0.0,
                 "igv_total": 0.0,
-                "precio_total": 64.0
+                "precio_total": 64.0,
             },
             {
                 "cantidad": 1,
@@ -606,25 +598,20 @@ if __name__ == "__main__":
                 "precio_base": 36.0,
                 "igv": 0.0,
                 "igv_total": 0.0,
-                "precio_total": 36.0
-            }
+                "precio_total": 36.0,
+            },
         ],
         "resumen": {
             "serie": "F03-01",
             "numero": "01",
             "sub_total": 100.0,
             "igv_total": 0.0,
-            "total": 100.0
+            "total": 100.0,
         },
         "fecha": "22/07/2025",
         "id_remitente": "2",
         "id_cliente": "None",
-        "tipo_documento": "BOLETA"
+        "tipo_documento": "BOLETA",
     }
-
-    logging.basicConfig(
-        level=logging.DEBUG,  # Cambia a INFO si no quieres debug
-        format="%(asctime)s - %(levelname)s - %(message)s"
-    )
 
     send_billing_sunat(test_sende)

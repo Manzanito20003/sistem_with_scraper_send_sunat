@@ -16,16 +16,16 @@ from PyQt5.QtWidgets import (
     QDialog,
     QMessageBox,
     QComboBox,
-    QToolBar, 
+    QToolBar,
     QAction,
-    QMainWindow   # migramos
+    QMainWindow,  # migramos
 )
 
 from Frontend.dialogs.historial_dialog import HistorialDialog
 from Frontend.utils.Threads import TaskWorker
 
 from Backend.BoletaController import BoletaController
-from Backend.utils.img_to_json import process_image_to_json
+from Backend.utils.img_to_json import process_image_to_json, process_pdf_to_json
 from DataBase.DatabaseManager import DatabaseManager
 from Frontend.views.cliente_view import ClienteView
 from Frontend.views.producto_view import ProductView
@@ -80,12 +80,12 @@ class BoletaApp(QMainWindow):
         self.img_label.setPixmap(
             QPixmap("camera_icon.png").scaled(500, 500, Qt.KeepAspectRatio)
         )
-        self.img_label.setMinimumSize(300,350)
+        self.img_label.setMinimumSize(300, 350)
 
         self.img_label.setAlignment(Qt.AlignCenter)
         self.img_button = QPushButton("Subir Imagen", self)
         # Ahora se asocia correctamente a la instancia
-        self.img_button.clicked.connect(self.subir_imagen)
+        self.img_button.clicked.connect(self.subir_archivo)
 
         left_frame.addWidget(self.img_label)
         left_frame.addWidget(self.img_button)
@@ -99,7 +99,7 @@ class BoletaApp(QMainWindow):
         # Botón de Borrar Todo
         self.borrar_button = QPushButton("Borrar Todo", self)
         self.borrar_button.setStyleSheet(
-                '''
+            '''
             QPushButton {
                 background-color: #ff4d4f;
                 color: white;
@@ -119,7 +119,8 @@ class BoletaApp(QMainWindow):
             }
 
 
-        ''')
+        '''
+        )
         self.borrar_button.clicked.connect(
             self.clean_all
         )  # Conectamos la función de borrar todo
@@ -168,7 +169,8 @@ class BoletaApp(QMainWindow):
         right_frame.addWidget(self.resumen_view)
         # Botón de Envío
         self.enviar_button = QPushButton("Emitir", self)
-        self.enviar_button.setStyleSheet("""
+        self.enviar_button.setStyleSheet(
+            """
             QPushButton {
                 background-color: #28a745;
                 color: white;
@@ -183,8 +185,8 @@ class BoletaApp(QMainWindow):
             QPushButton:pressed {
                 background-color: #1e7e34;
             }
-        """)
-
+        """
+        )
 
         self.enviar_button.setMinimumHeight(40)
         self.enviar_button.clicked.connect(lambda: self.procesar_boleta())
@@ -201,6 +203,7 @@ class BoletaApp(QMainWindow):
 
         self.setWindowTitle("Resumen de Boleta")
         self.resize(1200, 600)
+
     def crear_menubar(self):
         menubar = self.menuBar()
 
@@ -218,8 +221,12 @@ class BoletaApp(QMainWindow):
 
         # ─── Menú Ayuda ───
         menu_ayuda = menubar.addMenu("Ayuda")
-        menu_ayuda.addAction("Acerca de", lambda: QMessageBox.information(self, "Acerca de", "Sistema de Boletas v1.0"))
-
+        menu_ayuda.addAction(
+            "Acerca de",
+            lambda: QMessageBox.information(
+                self, "Acerca de", "Sistema de Boletas v1.0"
+            ),
+        )
 
     def crear_toolbar(self):
         toolbar = QToolBar("Menú Principal")
@@ -231,9 +238,15 @@ class BoletaApp(QMainWindow):
         action_historial = QAction("Historial", self)
 
         # Conectar señales
-        action_usuario.triggered.connect(lambda: QMessageBox.information(self, "Config", "Próximamente"))
-        action_config.triggered.connect(lambda: QMessageBox.information(self, "Config", "Próximamente"))
-        action_historial.triggered.connect(lambda: QMessageBox.information(self, "Historial", "Ver boletas emitidas"))
+        action_usuario.triggered.connect(
+            lambda: QMessageBox.information(self, "Config", "Próximamente")
+        )
+        action_config.triggered.connect(
+            lambda: QMessageBox.information(self, "Config", "Próximamente")
+        )
+        action_historial.triggered.connect(
+            lambda: QMessageBox.information(self, "Historial", "Ver boletas emitidas")
+        )
 
         # Agregar al toolbar
         toolbar.addAction(action_usuario)
@@ -242,26 +255,36 @@ class BoletaApp(QMainWindow):
 
         return toolbar
 
-
-    def subir_imagen(self):
-        """Aqui se sube la imagen y se procesa con AI"""
-        logging.info(" Iniciando función subir_imagen...")
+    def subir_archivo(self):
+        """Selecciona un archivo (imagen o PDF) y lo procesa con AI"""
+        logging.info("Iniciando función subir_archivo...")
         try:
             # Selección de archivo
             file_path, _ = QFileDialog.getOpenFileName(
                 None,
                 "Seleccionar archivo",
                 "",
-                "Archivos soportados (*.png *.jpg *.jpeg *.bmp *.pdf)"
+                "Archivos soportados (*.png *.jpg *.jpeg *.bmp *.pdf)",
             )
 
             if not file_path:
                 logging.warning("No se seleccionó ningún archivo.")
                 QMessageBox.information(self, "Información", "Archivo no seleccionado")
                 return
-            self.display_image(file_path)
 
-            self.worker = TaskWorker(process_image_to_json, file_path)
+            # Mostrar imagen solo si no es PDF
+            if not file_path.lower().endswith(".pdf"):
+                self.display_image(file_path)
+
+            # Elegir worker según tipo de archivo
+            if file_path.lower().endswith(".pdf"):
+                logging.info(f"Procesando PDF: {file_path}")
+                self.worker = TaskWorker(process_pdf_to_json, file_path)
+            else:
+                logging.info(f"Procesando imagen: {file_path}")
+                self.worker = TaskWorker(process_image_to_json, file_path)
+
+            # Conectar señales
             self.worker.finished.connect(self.on_img_processed)
             self.worker.error.connect(
                 lambda e: QMessageBox.critical(self, "Error", str(e))
@@ -269,7 +292,9 @@ class BoletaApp(QMainWindow):
             self.worker.start()
 
         except Exception as e:
-            logging.error(f"Error inesperado al procesar la imagen: {e}", exc_info=True)
+            logging.error(
+                f"Error inesperado al procesar el archivo: {e}", exc_info=True
+            )
             QMessageBox.critical(self, "Error", f"Ocurrió un error inesperado:\n{e}")
 
     def on_img_processed(self, result):
@@ -399,17 +424,18 @@ class BoletaApp(QMainWindow):
         QMessageBox.critical(self, "Error", f"No se pudo emitir la boleta:\n{mensaje}")
         self.enviar_button.setEnabled(True)
 
-    #---- Métodos de los menús ----
+    # ---- Métodos de los menús ----
     def abrir_productos(self):
         if self.selected_remitente_id is None:
             QMessageBox.warning(self, "Error", "Debes seleccionar un remitente primero")
             return
-        print("[Debug] abrir productos - remitente_id:", self.selected_remitente_id)
         dlg = ProductosDialog(self.controller, self.selected_remitente_id, parent=self)
         dlg.exec_()
 
     def abrir_clientes(self):
-        QMessageBox.information(self, "Clientes", "Aquí se abrirá el gestor de clientes.")
+        QMessageBox.information(
+            self, "Clientes", "Aquí se abrirá el gestor de clientes."
+        )
 
     def abrir_remitentes(self):
         dlg = RemitenteDialog(parent=self, controller=self.controller)
@@ -420,5 +446,9 @@ class BoletaApp(QMainWindow):
         if not self.selected_remitente_id:
             QMessageBox.warning(self, "Error", "Debes seleccionar un remitente primero")
             return
-        dlg = HistorialDialog(parent=self,controller=self.controller,id_sender=self.selected_remitente_id)
+        dlg = HistorialDialog(
+            parent=self,
+            controller=self.controller,
+            id_sender=self.selected_remitente_id,
+        )
         dlg.exec_()

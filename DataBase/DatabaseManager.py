@@ -147,7 +147,9 @@ class DatabaseManager:
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def insert_invoice(self, id_client, id_sender, total, igv, tipo, serie, numero, emision_fecha):
+    def insert_invoice(
+        self, id_client, id_sender, total, igv, tipo, serie, numero, emision_fecha
+    ):
         """Inserta una nueva boleta."""
         self.cursor.execute(
             """
@@ -182,11 +184,10 @@ class DatabaseManager:
         self.cursor.execute("SELECT * FROM clients")
         return self.cursor.fetchall()
 
-    def get_products_by_sender(self,id_sender=None):
-        print("[debug] Obteniendo productos para el remitente:", id_sender)
+    def get_products_by_sender(self, id_sender=None):
         self.cursor.execute("SELECT * FROM products where id_sender = ?", (id_sender,))
         return self.cursor.fetchall()
-    
+
     def get_products(self):
         self.cursor.execute("SELECT * FROM products")
         return self.cursor.fetchall()
@@ -200,7 +201,7 @@ class DatabaseManager:
             JOIN sender se ON inv.id_sender = se.id
             WHERE inv.id_sender = ?
             """,
-            (id_sender,)
+            (id_sender,),
         )
         return self.cursor.fetchall()
 
@@ -258,11 +259,17 @@ class DatabaseManager:
         self.cursor.execute("DELETE FROM clients WHERE id = ?", (id_client,))
         self.conn.commit()
 
-    def delete_product_by_sender(self,id_sender, id_product):
-        self.cursor.execute("DELETE FROM products WHERE id = ? and id_sender=?", (id_product,id_sender,))
+    def delete_product_by_sender(self, id_sender, id_product):
+        self.cursor.execute(
+            "DELETE FROM products WHERE id = ? and id_sender=?",
+            (
+                id_product,
+                id_sender,
+            ),
+        )
         self.conn.commit()
 
-    def delete_invoice(self,id_invoice):
+    def delete_invoice(self, id_invoice):
         self.cursor.execute("DELETE FROM invoices WHERE id = ?", (id_invoice,))
         self.conn.commit()
 
@@ -271,6 +278,7 @@ class DatabaseManager:
             "DELETE FROM invoice_details WHERE id = ?", (id_invoice_detail,)
         )
         self.conn.commit()
+
     def delete_all_data(self):
         """Borra todos los registros de todas las tablas (para test)."""
         self.cursor.executescript(
@@ -284,6 +292,7 @@ class DatabaseManager:
         """
         )
         self.conn.commit()
+
     # ===============================
     # Métodos de update
     # ===============================
@@ -320,11 +329,10 @@ class DatabaseManager:
         )
         self.conn.commit()
 
-
     def test_data_user(self):
         """Prueba de conexión a la base de datos."""
         self.insert_sender
-        
+
 
 if __name__ == "__main__":
     db_manager = DatabaseManager()
@@ -356,8 +364,7 @@ if __name__ == "__main__":
     )
     """
 
-
-    #db_manager.delete_all_data()  # Limpia la base de datos para pruebas
+    # db_manager.delete_all_data()  # Limpia la base de datos para pruebas
     db_manager.create_tables()  # Crea las tablas nuevamente
     db_manager.close()
     print(" tablas creadas correctamente.")

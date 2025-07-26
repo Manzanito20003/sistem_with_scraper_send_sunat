@@ -1,4 +1,5 @@
 """widget para Productos"""
+
 import logging
 from functools import partial
 
@@ -10,7 +11,8 @@ from PyQt5.QtWidgets import (
     QComboBox,
     QTableWidgetItem,
     QMessageBox,
-    QPushButton, QGraphicsDropShadowEffect,
+    QPushButton,
+    QGraphicsDropShadowEffect,
 )
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
@@ -86,7 +88,7 @@ class ProductView(QWidget):
         """Cuando el usuario elige un producto del QComboBox, actualiza la fila con sus datos."""
 
         if not datos_producto:
-            print("Error: no hay datos del producto")
+            logging.error("no hay datos del producto")
             return
 
         nombre, precio, unidad, igv, id_producto = datos_producto
@@ -227,14 +229,14 @@ class ProductView(QWidget):
                 combo_box = self.productos_table.cellWidget(row, 2)
 
                 if isinstance(
-                        combo_box, AutComboBox
+                    combo_box, AutComboBox
                 ):  # Comprobar si el widget es un AutComboBox
                     descripcion = (
                         combo_box.currentText()
                     )  # Obtener el texto seleccionado
-                    print(f"Descripción seleccionada: {descripcion}")
+                    logging.info(f"Descripción seleccionada: {descripcion}")
                 else:
-                    print("No hay AutComboBox en esta celda.")
+                    logging.warning("No hay AutComboBox en esta celda.")
                     descripcion = ""  # Si no es un AutComboBox, retorna un valor vacío
 
                 producto = {
@@ -332,7 +334,7 @@ class ProductView(QWidget):
             # Aplicar lógica de IGV
             if aplica_igv:
                 if not hasattr(
-                        self, "precios_base_originales"
+                    self, "precios_base_originales"
                 ):  # si no existe el atributo precios_base_originales
                     pass
 
@@ -388,9 +390,7 @@ class ProductView(QWidget):
 
     def actualizar_resumen(self):
         """Calcula y actualiza el Total IGV y el Total Importe usando la columna 'precio_total'."""
-        print("entrando a actualizar_resumen")
-
-        # 🔹 Desconectar señales temporalmente para evitar loops infinitos
+        logging.info("entrando a actualizar_resumen")
         self.productos_table.blockSignals(True)
 
         total_importe = 0
@@ -422,7 +422,7 @@ class ProductView(QWidget):
 
         # 🔹 Actualizar etiquetas de resumen
         self.parent.resumen_view.actualizar_total_igv_and_importe(
-            total_igv, total_importe-total_igv
+            total_igv, total_importe - total_igv
         )
 
         logging.info(

@@ -87,7 +87,6 @@ class ClienteView(QWidget):
         cliente_layout.setColumnStretch(2, 1)  # Etiqueta "Nombre" / "Fecha"
         cliente_layout.setColumnStretch(3, 2)  # Campo de entrada
 
-
         cliente_box.setLayout(cliente_layout)
 
         # Layout principal para este widget

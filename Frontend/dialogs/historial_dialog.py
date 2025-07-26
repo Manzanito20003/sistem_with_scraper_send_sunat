@@ -1,6 +1,14 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget, QWidget
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QTabWidget,
+    QWidget,
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -18,10 +26,14 @@ class InvoiceDetailsDialog(QDialog):
 
         tabla = QTableWidget()
         tabla.setColumnCount(5)
-        tabla.setHorizontalHeaderLabels(["Producto", "Cantidad", "Unidad", "Precio Unit.", "Subtotal"])
+        tabla.setHorizontalHeaderLabels(
+            ["Producto", "Cantidad", "Unidad", "Precio Unit.", "Subtotal"]
+        )
         tabla.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
-        for row_idx, (qty, subtotal, _, _, _, name, unit, price, _) in enumerate(details):
+        for row_idx, (qty, subtotal, _, _, _, name, unit, price, _) in enumerate(
+            details
+        ):
             tabla.insertRow(row_idx)
             datos = [name, qty, unit, price, subtotal]
             for col_idx, dato in enumerate(datos):
@@ -73,7 +85,15 @@ class HistorialDialog(QDialog):
         self.tabla = QTableWidget()
         self.tabla.setColumnCount(7)
         self.tabla.setHorizontalHeaderLabels(
-            ["ID Boleta", "Cliente", "Remitente", "Total", "Tipo", "IGV", "Fecha Emisión"]
+            [
+                "ID Boleta",
+                "Cliente",
+                "Remitente",
+                "Total",
+                "Tipo",
+                "IGV",
+                "Fecha Emisión",
+            ]
         )
         header = self.tabla.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
@@ -132,14 +152,22 @@ class HistorialDialog(QDialog):
             clientes[cliente] = clientes.get(cliente, 0) + 1
 
         self.ax.clear()
-        bars = self.ax.bar(clientes.keys(), clientes.values(), color="#58D68D", edgecolor="black")
+        bars = self.ax.bar(
+            clientes.keys(), clientes.values(), color="#58D68D", edgecolor="black"
+        )
         self.ax.set_title("Cantidad de Ventas por Cliente")
         self.ax.set_ylabel("Cantidad de Boletas")
         for bar in bars:
             h = bar.get_height()
-            self.ax.text(bar.get_x() + bar.get_width()/2, h + 0.2, str(int(h)),
-                         ha='center', va='bottom')
+            self.ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                h + 0.2,
+                str(int(h)),
+                ha="center",
+                va="bottom",
+            )
         self.canvas.draw()
+
 
 if __name__ == "__main__":
     import sys

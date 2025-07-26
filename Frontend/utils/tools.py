@@ -30,17 +30,15 @@ class AutComboBox(QComboBox):
         self.activated.connect(self.on_item_selected)
 
         # DEBUG
-        logging.debug(
-            f" data_cache: {self.data_cache}\n"
-        )
+        logging.debug(f" data_cache: {self.data_cache}\n")
 
     def showPopup(self):
         print("activando showpopup")
         texto = self.currentText()
         self.clear()
         self.addItem(texto)
-        match=self.matching_items(texto)
-        print("[DEBUG] match:",match)
+        match = self.matching_items(texto)
+        print("[DEBUG] match:", match)
         self.parsear_data_to_combo(match)
         super().showPopup()
 
@@ -77,10 +75,10 @@ class AutComboBox(QComboBox):
 
 
 def parse_productos(data):
-    print("DATA:",data)
+    print("DATA:", data)
     resultado = []
     for row in data:
-        id_producto,_, nombre, unidad, precio, igv = row[
+        id_producto, _, nombre, unidad, precio, igv = row[
             :6
         ]  # Solo tomamos los 6 primeros
 
@@ -93,10 +91,10 @@ def parse_productos(data):
 
 
 def parse_cliente(data):
-    print("TEST data: ,",data)
+    print("TEST data: ,", data)
     resultado = []
     for row in data:
-        id_cliente,_, nombre, dni, ruc = row[:5]
+        id_cliente, _, nombre, dni, ruc = row[:5]
         texto = f"{nombre} | DNI: {dni or '-'} | RUC: {ruc or '-'}"
         valor = (nombre, dni, ruc, id_cliente)
         resultado.append((texto, valor))

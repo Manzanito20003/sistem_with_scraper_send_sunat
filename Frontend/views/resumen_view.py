@@ -20,7 +20,7 @@ class ResumenView(QWidget):
         self.serie = None
         self.numero = None
         self.igv_total = None
-        self.valor_total =None
+        self.valor_total = None
         self.total_importe = None
 
     def initUI(self):
@@ -47,7 +47,7 @@ class ResumenView(QWidget):
     def actualizar_total_igv_and_importe(self, total_igv, valor_total):
         self.igv_total = total_igv
         self.valor_total = valor_total
-        self.total_importe = total_igv+valor_total
+        self.total_importe = total_igv + valor_total
 
         self.igv_label.setText(f"Total IGV: S/ {total_igv:.2f}")
         self.valor_label.setText(f"Valor Total: S/ {valor_total:.2f}")

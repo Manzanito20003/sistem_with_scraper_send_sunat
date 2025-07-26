@@ -2,14 +2,15 @@ from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QPixmap, QPainter, QBrush, QPen
 from PyQt5.QtCore import Qt, QPoint
 
+
 class ZoomLabel(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
         self.pixmap_original = None
         self.cursor_pos = None
-        self.zoom_factor = 2       # cuanto se amplía
-        self.zoom_radius = 50      # tamaño visible de la lupa (círculo)
+        self.zoom_factor = 2  # cuanto se amplía
+        self.zoom_radius = 50  # tamaño visible de la lupa (círculo)
 
     def setPixmap(self, pixmap: QPixmap):
         super().setPixmap(pixmap)
@@ -48,10 +49,7 @@ class ZoomLabel(QLabel):
 
             # Porción que se toma (antes de escalar)
             src_rect = self.pixmap_original.copy(
-                src_x - self.zoom_radius,
-                src_y - self.zoom_radius,
-                zoom_size,
-                zoom_size
+                src_x - self.zoom_radius, src_y - self.zoom_radius, zoom_size, zoom_size
             )
 
             # Escalamos el contenido pero no el tamaño del círculo
@@ -59,7 +57,7 @@ class ZoomLabel(QLabel):
                 zoom_size * self.zoom_factor,
                 zoom_size * self.zoom_factor,
                 Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
+                Qt.SmoothTransformation,
             )
 
             # Ajuste para centrar la imagen aumentada dentro del círculo
@@ -80,6 +78,7 @@ class ZoomLabel(QLabel):
 
     def _circular_clip(self, center: QPoint, radius: int):
         from PyQt5.QtGui import QPainterPath
+
         path = QPainterPath()
         path.addEllipse(center, radius, radius)
         return path

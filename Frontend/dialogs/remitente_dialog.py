@@ -1,8 +1,19 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QLabel, QTableWidget, QTableWidgetItem, QToolBar, QAction, QMessageBox, QHeaderView
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QToolBar,
+    QAction,
+    QMessageBox,
+    QHeaderView,
 )
 import logging
+
 
 class RemitenteDialog(QDialog):
     def __init__(self, controller, parent=None):
@@ -19,7 +30,9 @@ class RemitenteDialog(QDialog):
         # ToolBar
         toolbar = QToolBar("Opciones")
         toolbar.addAction(QAction("Crear", self, triggered=self.crear_remitente))
-        toolbar.addAction(QAction("Actualizar", self, triggered=self.actualizar_remitente))
+        toolbar.addAction(
+            QAction("Actualizar", self, triggered=self.actualizar_remitente)
+        )
         toolbar.addAction(QAction("Eliminar", self, triggered=self.borrar_remitente))
         toolbar.addAction(QAction("Ver", self, triggered=self.cargar_remitentes))
         layout.addWidget(toolbar)
@@ -45,8 +58,10 @@ class RemitenteDialog(QDialog):
         # Tabla
         self.tabla = QTableWidget()
         self.tabla.setColumnCount(5)
-        self.tabla.setHorizontalHeaderLabels(["ID", "Nombre", "RUC", "Usuario", "Contraseña"])
-        self.tabla.setColumnWidth(1,265)
+        self.tabla.setHorizontalHeaderLabels(
+            ["ID", "Nombre", "RUC", "Usuario", "Contraseña"]
+        )
+        self.tabla.setColumnWidth(1, 265)
         self.tabla.setAlternatingRowColors(True)
         layout.addWidget(self.tabla)
 
@@ -54,7 +69,12 @@ class RemitenteDialog(QDialog):
         self.cargar_remitentes()
 
     def crear_remitente(self):
-        if not self.nombre.text() or not self.ruc.text() or not self.user.text() or not self.password.text():
+        if (
+            not self.nombre.text()
+            or not self.ruc.text()
+            or not self.user.text()
+            or not self.password.text()
+        ):
             QMessageBox.warning(self, "Advertencia", "Complete todos los campos.")
             return
         try:
@@ -62,7 +82,7 @@ class RemitenteDialog(QDialog):
                 self.nombre.text(),
                 self.ruc.text(),
                 self.user.text(),
-                self.password.text()
+                self.password.text(),
             )
             QMessageBox.information(self, "Éxito", "Remitente creado.")
             self.cargar_remitentes()
@@ -101,7 +121,7 @@ class RemitenteDialog(QDialog):
                 self,
                 "Confirmar eliminación",
                 f"¿Eliminar remitente con ID {id_remitente}?",
-                QMessageBox.Yes | QMessageBox.No
+                QMessageBox.Yes | QMessageBox.No,
             )
 
             if confirm == QMessageBox.Yes:
@@ -118,6 +138,6 @@ class RemitenteDialog(QDialog):
             return
         for row_idx, row in enumerate(remitentes):
             self.tabla.insertRow(row_idx)
-            print("[DEBUG] row_idx:",row_idx,"data:",row)
+            print("[DEBUG] row_idx:", row_idx, "data:", row)
             for col_idx, dato in enumerate(row):
                 self.tabla.setItem(row_idx, col_idx, QTableWidgetItem(str(dato)))

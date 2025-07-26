@@ -28,39 +28,42 @@ class BoletaController:
         if result is False:
             return False
 
-        #send_billing_sunat(boleta_data.dict())
+        # send_billing_sunat(boleta_data.dict())
 
         logging.info("Boleta Emitida correctamente :)")
         return True
-    def guardar_boleta_db(self,data):
-        try:
-            id_remitente=data["id_remitente"]
-            nombre=data["cliente"]["nombre"]
-            dni=data["cliente"]["dni"]
-            ruc=data["cliente"]["ruc"]
-            id_cliente=self.db.insert_client(id_remitente,nombre,dni,ruc)
-            logging.info("Insertado cliente ")
-            #-- guardar factura--
-            total=data["resumen"]["total"]
-            igv_total=data["resumen"]["igv_total"]
 
-            #-- guardar invoice--
-            serie=data["resumen"]["serie"]
-            numero=data["resumen"]["numero"]
-            emision_fecha=data["fecha"]
+    def guardar_boleta_db(self, data):
+        try:
+            id_remitente = data["id_remitente"]
+            nombre = data["cliente"]["nombre"]
+            dni = data["cliente"]["dni"]
+            ruc = data["cliente"]["ruc"]
+            id_cliente = self.db.insert_client(id_remitente, nombre, dni, ruc)
+            logging.info("Insertado cliente ")
+            # -- guardar factura--
+            total = data["resumen"]["total"]
+            igv_total = data["resumen"]["igv_total"]
+
+            # -- guardar invoice--
+            serie = data["resumen"]["serie"]
+            numero = data["resumen"]["numero"]
+            emision_fecha = data["fecha"]
             tipo = data["tipo_documento"]
-            invoice_id=self.db.insert_invoice(id_cliente,
-                                              id_remitente,
-                                              total,
-                                              igv_total,
-                                              tipo,
-                                              serie,
-                                              numero,
-                                              emision_fecha)
+            invoice_id = self.db.insert_invoice(
+                id_cliente,
+                id_remitente,
+                total,
+                igv_total,
+                tipo,
+                serie,
+                numero,
+                emision_fecha,
+            )
             logging.info("Insertado invoice ")
 
-            #-- guardar detailes--
-            productos=data["productos"]
+            # -- guardar detailes--
+            productos = data["productos"]
             for p in productos:
                 cantidad = p["cantidad"]
                 descripcion = p["descripcion"]
@@ -69,15 +72,18 @@ class BoletaController:
                 igv = p["igv"]
                 total = p["precio_total"]
 
-                product_id = self.db.insert_product(id_remitente, descripcion, unidad, precio, igv)
+                product_id = self.db.insert_product(
+                    id_remitente, descripcion, unidad, precio, igv
+                )
                 self.db.insert_invoice_detail(invoice_id, product_id, cantidad, total)
 
             logging.info("Insertado productos y details")
             logging.info("Data guardada correctamente BD")
             return True
         except Exception as e:
-            logging.error("Hubo un error en guardar en BD %s",e)
+            logging.error("Hubo un error en guardar en BD %s", e)
             return False
+
     def validar_envio(self, remitente_id, cliente_view):
 
         if remitente_id is None:
@@ -128,14 +134,14 @@ class BoletaController:
         except Exception as e:
             logging.error(f"Error al armar los datos de la boleta: {e}")
             raise ValueError("Error al armar los datos de la boleta.") from e
+
     # ---- DB  ---
     def match_fuzzy(self, data: List[Tuple], query: str) -> List[Tuple]:
         """
         Productos ((id, nombre, unidad, precio, igv, ...)) -> ejemplo
         Busca coincidencias aproximadas del nombre de producto con la query.
         """
-        print("entando a match_fuzzy")
-        print("data:",data,"quey:",query)
+        logging.info("entrando a match_fuzzy")
         if query == "":
             return []
 
@@ -155,8 +161,9 @@ class BoletaController:
 
         # Retornar los mejores 5 resultados (ordenados por score descendente)
         return sorted(matches_with_confidence, key=lambda x: x[-1], reverse=True)[:5]
-    #--- SENDERS ----
-    def agregar_sender(self, nombre: str, ruc: str, user: str,password:str) -> bool:
+
+    # --- SENDERS ----
+    def agregar_sender(self, nombre: str, ruc: str, user: str, password: str) -> bool:
         """
         Agrega un nuevo remitente a la base de datos.
         Retorna el ID del remitente agregado.
@@ -171,14 +178,16 @@ class BoletaController:
         except Exception as e:
             logging.error(f"Error al agregar remitente: {e}")
             return None
+
     def ver_senders(self):
         try:
             senders = self.db.get_senders()
             logging.info("Remitentes obtenidos correctamente.")
             return senders
         except Exception as e:
-            logging.error("Error al obtener remitentes: %s",e)
+            logging.error("Error al obtener remitentes: %s", e)
             return None
+
     def borrar_sender(self, id_sender: int) -> bool:
         try:
             self.db.delete_sender(id_sender)
@@ -187,23 +196,26 @@ class BoletaController:
         except Exception as e:
             logging.error(f"Error al borrar remitente: {e}")
             return False
-    def actualizar_sender(self, id_sender: int, nombre: str, ruc: str, user: str, password: str) -> bool:
+
+    def actualizar_sender(
+        self, id_sender: int, nombre: str, ruc: str, user: str, password: str
+    ) -> bool:
         if not nombre or not ruc or not user or not password:
             logging.error("Nombre, RUC, user y password son obligatorios.")
             return False
-        if  not id_sender:
-            logging.error("Fallo al pasar id_sender: %s",id_sender)
+        if not id_sender:
+            logging.error("Fallo al pasar id_sender: %s", id_sender)
             return False
         try:
             self.db.update_sender(id_sender, nombre, ruc, user, password)
-            logging.info("Remitente con ID %s actualizado correctamente.",id_sender)
+            logging.info("Remitente con ID %s actualizado correctamente.", id_sender)
             return True
         except Exception as e:
             logging.error(f"Error al actualizar remitente: {e}")
             return False
 
-    #---- PRODUCTOS ----
-    def agregar_product(self,id_sender, name, unit, price, igv):
+    # ---- PRODUCTOS ----
+    def agregar_product(self, id_sender, name, unit, price, igv):
         """
         Agrega un nuevo producto a la base de datos.
         Retorna el ID del producto agregado.
@@ -213,11 +225,14 @@ class BoletaController:
             return None
         try:
             product_id = self.db.insert_product(id_sender, name, unit, price, igv)
-            logging.info(f"Producto '{name}' agregado correctamente con ID: {product_id}")
+            logging.info(
+                f"Producto '{name}' agregado correctamente con ID: {product_id}"
+            )
             return product_id
         except Exception as e:
             logging.error(f"Error al agregar producto: {e}")
             return None
+
     def ver_productos(self, id_sender):
         """
         Obtiene todos los productos de un remitente específico.
@@ -230,19 +245,20 @@ class BoletaController:
         except Exception as e:
             logging.error(f"Error al obtener productos: {e} sender : {id_sender}")
             return []
-    def borrar_product(self, id_sender,id_product):
+
+    def borrar_product(self, id_sender, id_product):
         """
         Borra un producto de la base de datos por su ID.
         Retorna True si se borró correctamente, False en caso contrario.
         """
         try:
-            self.db.delete_product_by_sender(id_sender,id_product)
+            self.db.delete_product_by_sender(id_sender, id_product)
             logging.info(f"Producto con ID {id_product} borrado correctamente.")
             return True
         except Exception as e:
             logging.error(f"Error al borrar producto: {e}")
-            return False 
-                 
+            return False
+
     def actualizar_product(self, id_sender, id_product, name, unit, price, igv):
         """
         Actualiza un producto existente en la base de datos.
@@ -252,25 +268,31 @@ class BoletaController:
             logging.error("Nombre, unidad y precio son obligatorios.")
             return False
         try:
-            self.db.update_product( id_product,id_sender, name, unit, price, igv)
+            self.db.update_product(id_product, id_sender, name, unit, price, igv)
             logging.info(f"Producto con ID {id_product} actualizado correctamente.")
             return True
         except Exception as e:
             logging.error(f"Error al actualizar producto: {e}")
             return False
 
-    def ver_histoial_id_sender(self,id_sender):
+    def ver_histoial_id_sender(self, id_sender):
         try:
             return self.db.get_invoices_by_sender_id(id_sender)
         except Exception as e:
-            logging.error("fallo al extraer el historial para id_sender=%s, error=%s", id_sender, e)
+            logging.error(
+                "fallo al extraer el historial para id_sender=%s, error=%s",
+                id_sender,
+                e,
+            )
             return []
-    def ver_invoice_details(self,invoice_id):
+
+    def ver_invoice_details(self, invoice_id):
         try:
             return self.db.get_invoice_details(invoice_id)
         except Exception as e:
             logging.error("fallo al extraer details de historia")
             return []
+
 
 if __name__ == "__main__":
     # Datos de prueba (id, nombre, otro campo opcional)

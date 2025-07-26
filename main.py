@@ -1,4 +1,4 @@
-""" "Archivo principal que lanza la aplicación de boletas con PyQt5."""
+"""Archivo principal que lanza la aplicación de boletas con PyQt5."""
 
 from datetime import datetime
 import logging

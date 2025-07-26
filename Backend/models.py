@@ -18,7 +18,7 @@ class Cliente(BaseModel):
 class Producto(BaseModel):
     cantidad: float = Field(..., gt=0)
     descripcion: str
-    unidad_medida: Literal["KILOGRAMO", "CAJA", "UNIDAD","BOLSA"]
+    unidad_medida: Literal["KILOGRAMO", "CAJA", "UNIDAD", "BOLSA"]
     precio_base: float
     igv: float
     igv_total: float
