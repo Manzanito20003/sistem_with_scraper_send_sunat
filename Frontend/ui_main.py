@@ -80,7 +80,7 @@ class BoletaApp(QMainWindow):
         self.img_label.setPixmap(
             QPixmap("camera_icon.png").scaled(500, 500, Qt.KeepAspectRatio)
         )
-        self.img_label.setMinimumSize(300, 350)
+        self.img_label.setFixedSize(300, 350)
 
         self.img_label.setAlignment(Qt.AlignCenter)
         self.img_button = QPushButton("Subir Imagen", self)

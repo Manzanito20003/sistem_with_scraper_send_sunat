@@ -1,4 +1,5 @@
 """Scraping de la pagina de Sunat para enviar una boleta con .json"""
+
 import logging
 import os
 import time
@@ -412,7 +413,7 @@ def send_billing_sunat(data):
     logging.info(f"   - Total: S/ {resumen.get('total', 0):.2f}")
 
     try:
-        driver = configurar_driver(headless=False)  # Configurar e iniciar el driver
+        driver = configurar_driver()  # Configurar e iniciar el driver
         iniciar_sesion(driver, sender_id)  # Iniciar sesión
         if data["tipo_documento"] == "BOLETA":
             emitir_boleta(driver, data)

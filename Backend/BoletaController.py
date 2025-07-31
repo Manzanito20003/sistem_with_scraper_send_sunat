@@ -28,7 +28,7 @@ class BoletaController:
         if result is False:
             return False
 
-        # send_billing_sunat(boleta_data.dict())
+        send_billing_sunat(boleta_data.dict())
 
         logging.info("Boleta Emitida correctamente :)")
         return True
