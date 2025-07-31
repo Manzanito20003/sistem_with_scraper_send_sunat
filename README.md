@@ -7,13 +7,14 @@ El proceso de emitir imagenes de boletas y facturas electrónicas, convertir imp
 Este proyecto automatiza dicho flujo de trabajo mediante técnicas de Web Scraping, Inteligencia Artificial y una interfaz gráfica intuitiva, reduciendo tiempos y mejorando la eficiencia del proceso.
 
 ## 🚀 FUNCIONALIDADES PRINCIPALES
+- Carga de imagen o PDF  al LLM (Gemini): Extraer los datos de la boleta y llenar el formulario.
 - Gestión de productos: visualización de precios y stock disponibles por remitente.
 - Búsqueda inteligente: recomendación de los 5 productos más similares al término buscado.
 - Generación de comprobantes: agregar productos de manera dinámica y generar el comprobante.
 - Envío automatizado a SUNAT: carga automática del comprobante al sistema oficial.
 - Selección de remitente: asignación rápida y precisa del emisor.
 - Descarga de comprobante: exportación inmediata del comprobante en formato PDF.
-- Reportes de ventas: generación de reportes con gráficos estadísticos.
+- Reportes de ventas: generación de reportes con gráficos (Basico).
 
 ## TECNOLOGÍAS UTILIZADAS
 
