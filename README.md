@@ -1,8 +1,11 @@
-## SISTEMA DE FACTURACIÓN AUTOMATIZADA
+## SISTEMA DE FACTURACIÓN AUTOMATIZADA  
+[Ir a la Demo](#demo)
+
 
 El proceso de emitir imagenes de boletas y facturas electrónicas, convertir importes afectos al IGV, y subir los comprobantes al sistema de SUNAT suele ser lento y repetitivo cuando se realiza de manera manual. Además, implica el uso de múltiples cuentas, formularios y validaciones.
 
 Este proyecto automatiza dicho flujo de trabajo mediante técnicas de Web Scraping, Inteligencia Artificial y una interfaz gráfica intuitiva, reduciendo tiempos y mejorando la eficiencia del proceso.
+
 ## 🚀 FUNCIONALIDADES PRINCIPALES
 - Gestión de productos: visualización de precios y stock disponibles por remitente.
 - Búsqueda inteligente: recomendación de los 5 productos más similares al término buscado.
@@ -21,7 +24,7 @@ Este proyecto automatiza dicho flujo de trabajo mediante técnicas de Web Scrapi
 - SQLite – Base de datos local liviana.
 - Matplotlib – Visualización de reportes y análisis de datos.
 
-## 🖥️ Requisitos
+## Requisitos
 
 - Python 3.11.1 o superior
 - pip (gestor de paquetes)
@@ -37,8 +40,8 @@ Este proyecto automatiza dicho flujo de trabajo mediante técnicas de Web Scrapi
 
    python main.py
 
-
-## 📷 DEMOSTRACIONES
+<a name="demo"></a>
+## Demostraciones
 
 Demostración rápida:
 ![Demo](demo/demo.gif)
